@@ -214,49 +214,61 @@ variable "logging" {
   description = <<-EOT
     Configuration for bucket logging and monitoring.
     
-    create_log_bucket           - Whether to create a new bucket for logs
-    log_bucket_name            - Name of existing log bucket (if create_log_bucket is false)
-    log_bucket_retention_days  - Number of days to retain logs in the log bucket
-    enable_cloudwatch_logs     - Whether to enable CloudWatch logging
-    cloudwatch_log_group_name  - Name of CloudWatch log group (optional)
-    cloudwatch_log_retention_days - Number of days to retain CloudWatch logs
+    Mode can be one of:
+    - "create_new"    : Creates new logging resources
+    - "use_existing"  : Uses existing logging resources
+    - "disabled"      : Disables logging
     
-    Example:
+    When mode = "use_existing":
+    - bucket_arn is required
+    - bucket_name is required
+    - log_prefix is optional (defaults to "s3-logs/")
+    
+    When mode = "create_new":
+    - retention_days is optional (defaults to 90)
+    - encryption_key can be either "create_new" or an existing KMS key ARN
+    
+    Example (Create New):
     ```hcl
     logging = {
-      create_log_bucket = true
-      log_bucket_retention_days = 90
-      enable_cloudwatch_logs = true
-      cloudwatch_log_retention_days = 30
+      mode = "create_new"
+      retention_days = 90
+      encryption_key = "create_new"
+    }
+    ```
+    
+    Example (Use Existing):
+    ```hcl
+    logging = {
+      mode = "use_existing"
+      bucket_arn = "arn:aws:s3:::existing-logs"
+      bucket_name = "existing-logs"
+      log_prefix = "custom-prefix/"
     }
     ```
   EOT
   
   type = object({
-    create_log_bucket          = optional(bool, true)
-    log_bucket_name           = optional(string)
-    log_bucket_retention_days = optional(number, 90)
-    enable_cloudwatch_logs    = optional(bool, false)
-    cloudwatch_log_group_name = optional(string)
-    cloudwatch_log_retention_days = optional(number, 30)
+    mode = string
+    # For use_existing mode
+    bucket_arn = optional(string)
+    bucket_name = optional(string)
+    log_prefix = optional(string, "s3-logs/")
+    # For create_new mode
+    retention_days = optional(number, 90)
+    encryption_key = optional(string, "create_new")
   })
 
-  default = {
-    create_log_bucket = true
+  validation {
+    condition = contains(["create_new", "use_existing", "disabled"], var.logging.mode)
+    error_message = "logging.mode must be one of: create_new, use_existing, disabled"
   }
 
   validation {
-    condition     = !var.logging.create_log_bucket || var.logging.log_bucket_name == null
-    error_message = "log_bucket_name should only be specified when create_log_bucket is false"
-  }
-
-  validation {
-    condition     = var.logging.log_bucket_retention_days == null || var.logging.log_bucket_retention_days >= 1
-    error_message = "log_bucket_retention_days must be at least 1 day"
-  }
-
-  validation {
-    condition     = var.logging.cloudwatch_log_retention_days == null || contains([0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653], var.logging.cloudwatch_log_retention_days)
-    error_message = "cloudwatch_log_retention_days must be one of [0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]"
+    condition = (
+      var.logging.mode != "use_existing" || 
+      (var.logging.bucket_arn != null && var.logging.bucket_name != null)
+    )
+    error_message = "When logging.mode = use_existing, bucket_arn and bucket_name are required"
   }
 }
