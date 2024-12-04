@@ -5,10 +5,29 @@ module "lifecycle_wrapper" {
   for_each = var.lifecycle_rules
 
   bucket = each.value.bucket
-  prefix = each.value.prefix
+  prefix = try(each.value.prefix, null)
   
+  # Enhanced transition rules
   transitions = try(each.value.transitions, [])
-  expiration = try(each.value.expiration, null)
   
+  # Expiration configuration
+  expiration = try(each.value.expiration, {
+    enabled = false
+    days = null
+    expired_object_delete_marker = false
+  })
+  
+  # Version cleanup
+  noncurrent_version_expiration = try(each.value.noncurrent_version_expiration, {
+    enabled = false
+    days = null
+  })
+  
+  # Incomplete multipart upload cleanup
+  abort_incomplete_multipart_upload = try(each.value.abort_incomplete_multipart_upload, {
+    enabled = false
+    days_after_initiation = 7
+  })
+
   tags = try(each.value.tags, {})
 } 
