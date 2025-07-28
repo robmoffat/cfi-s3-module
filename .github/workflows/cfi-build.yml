@@ -60,7 +60,7 @@ jobs:
             pushd "$path" > /dev/null
 
             terraform init
-            terraform apply -auto-approve
+            terraform apply -auto-approve -var="region=$AWS_REGION"
 
             popd > /dev/null
             pushd prowler > /dev/null
