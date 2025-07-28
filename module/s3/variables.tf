@@ -2,7 +2,7 @@ variable "bucket_config" {
   description = <<-EOT
     Configuration for the S3 bucket behavior and features.
     
-    force_destroy          - (Optional) Allow bucket to be destroyed even with content. Default: false
+    force_destroy          - (Optional) Allow bucket to be destroyed even with content. Default: true
     versioning_enabled     - (Optional) Enable versioning for objects. Default: true
     mfa_delete            - (Optional) Require MFA for delete operations. Default: true
     retention_days        - (Optional) Default retention period for objects. Default: 90
@@ -32,7 +32,7 @@ variable "bucket_config" {
     Example:
     ```hcl
     bucket_config = {
-      force_destroy = false
+      force_destroy = true
       versioning_enabled = true
       mfa_delete = true
       retention_days = 90
@@ -69,7 +69,7 @@ variable "bucket_config" {
   EOT
   
   type = object({
-    force_destroy          = optional(bool, false)
+    force_destroy          = optional(bool, true)
     versioning_enabled     = optional(bool, true)
     mfa_delete            = optional(bool, true)
     retention_days        = optional(number, 90)
