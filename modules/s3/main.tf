@@ -30,15 +30,6 @@ resource "aws_kms_key" "this" {
   description             = "KMS key for ${local.bucket_name} S3 bucket"
   deletion_window_in_days = var.kms_key.deletion_window_in_days
   enable_key_rotation     = var.kms_key.enable_key_rotation
-  
-  policy = jsonencode({
-    Version = "2012-10-17"
-    resource "aws_kms_key" "this" {
-  count = var.kms_key.create ? 1 : 0
-
-  description             = "KMS key for ${local.bucket_name} S3 bucket"
-  deletion_window_in_days = var.kms_key.deletion_window_in_days
-  enable_key_rotation     = var.kms_key.enable_key_rotation
 
   policy = jsonencode({
     Version = "2012-10-17"
