@@ -1,56 +1,42 @@
-provider "aws" {
-  region = local.region
-}
-
 variable "region" {
   description = "AWS region to deploy into"
   type        = string
   default     = "us-east-1" # optional fallback
 }
 
-locals {
-  name   = "complete-s3-bucket"
+provider "aws" {
+  region = var.region
 }
 
-module "s3_bucket" {
-  source = "../../../modules/s3"
 
-  bucket = local.name
-  
-  # Bucket configuration
-  bucket_config = {
-    force_destroy = true
-    versioning_enabled = true
-    intelligent_tiering = true
-    
-    lifecycle_rules = [
-      {
-        prefix = "logs/"
-        enabled = true
-        transition_days = 90
-        storage_class = "GLACIER"
-      }
-    ]
-  }
+data "aws_caller_identity" "current" {}
 
-  # KMS configuration
+module "secure_s3" {
+  source      = "../../../modules/s3"
+  prefix      = "prod"
+  bucket_name = "my-secure-s3-bucket-20250423"
+
   kms_key = {
     create = true
     deletion_window_in_days = 7
     enable_key_rotation = true
-    key_administrators = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    key_administrators = []
+    key_users = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/terraform-user",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+    ]
   }
 
-  # Logging configuration  
+
   logging = {
     mode = "create_new"
-    retention_days = 90
+    enable_cloudwatch_logs = true
+    retention_days = 30
     encryption_key = "create_new"
   }
 
   tags = {
-    Environment = "dev"
-    Owner       = "terraform"
-    Project     = "complete-example"
+    Environment = "Production"
+    Owner       = "CFI"
   }
-} 
+}
