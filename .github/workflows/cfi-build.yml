@@ -15,7 +15,7 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
-      OUTPUT_DIR: prowler-results
+      OUTPUT_DIR: results
       PROWLER_ARGS: "aws -M json-ocsf -q"
       CONFIG_FILE: config/terraform_targets.json
 
@@ -53,7 +53,6 @@ jobs:
           set -euo pipefail
 
           CONFIG_FILE=config/terraform_targets.json
-          OUTPUT_DIR=results
           mkdir -p "$OUTPUT_DIR"
 
           count=$(jq '.targets | length' $CONFIG_FILE)
@@ -102,5 +101,5 @@ jobs:
       - name: Upload OCSF scan results
         uses: actions/upload-artifact@v4
         with:
-          name: prowler-ocsf-results
+          name: cfi-results
           path: ${{ env.OUTPUT_DIR }}/ocsf.json
