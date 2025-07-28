@@ -86,7 +86,6 @@ jobs:
 
                 echo "🔍 Running Prowler scan for $id..."
                 pushd prowler > /dev/null
-                eval "$(poetry env info --path)/bin/activate"
                 poetry run python prowler-cli.py "$provider" --service "$service"
 
                 echo "📦 Capturing latest OCSF output..."
