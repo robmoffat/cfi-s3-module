@@ -1,0 +1,102 @@
+name: CFI Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-and-scan:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      OUTPUT_DIR: prowler-results
+      PROWLER_ARGS: "aws -M json-ocsf -q"
+      CONFIG_FILE: config/terraform_targets.json
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      - name: Clone Prowler
+        run: |
+          git clone --depth 1 https://github.com/prowler-cloud/prowler.git
+
+      - name: Install Prowler and Python deps
+        run: |
+          git clone https://github.com/prowler-cloud/prowler
+          cd prowler
+          pipx install poetry
+          poetry install
+      - name: Read config and run modules
+        run: |
+          set -euo pipefail
+
+          CONFIG_FILE=config/terraform_targets.json
+          OUTPUT_DIR=prowler-results
+          mkdir -p "$OUTPUT_DIR"
+
+          count=$(jq '.targets | length' $CONFIG_FILE)
+          echo "🔍 Found $count Terraform modules in $CONFIG_FILE"
+
+          for i in $(seq 0 $(($count - 1))); do
+            id=$(jq -r ".targets[$i].id" $CONFIG_FILE)
+            name=$(jq -r ".targets[$i].name" $CONFIG_FILE)
+            path=$(jq -r ".targets[$i].path" $CONFIG_FILE)
+            provider=$(jq -r ".targets[$i].provider" $CONFIG_FILE)
+            service=$(jq -r ".targets[$i].service" $CONFIG_FILE)
+
+            echo "🚀 Deploying module: $name (id: $id)"
+            pushd "$path" > /dev/null
+
+            terraform init
+            terraform apply -auto-approve
+
+            popd > /dev/null
+            pushd prowler > /dev/null
+
+            echo "🔍 Running Prowler scan for $id..."
+            eval "$(poetry env info --path)/bin/activate"
+            poetry run python prowler-cli.py "$provider" --service "$service"
+
+            echo "📦 Capturing latest OCSF output..."
+            latest_file=$(ls -t output/*.ocsf.json | head -n 1)
+            cp "$latest_file" "../$OUTPUT_DIR/${id}_ocsf.json"
+
+            popd > /dev/null
+            pushd "$path" > /dev/null
+
+            terraform destroy -auto-approve
+
+            popd > /dev/null
+          done
+
+          echo "📝 Copying metadata config to results"
+          cp "$CONFIG_FILE" "$OUTPUT_DIR/modules.json"
+
+      - name: Upload OCSF scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: prowler-ocsf-results
+          path: ${{ env.OUTPUT_DIR }}/ocsf.json
+
+      - name: Terraform Destroy
+        if: always() # Always run even if Prowler fails
+        run: terraform destroy -auto-approve
