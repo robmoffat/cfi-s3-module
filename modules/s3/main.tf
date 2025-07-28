@@ -86,7 +86,7 @@ resource "aws_s3_bucket" "logs" {
   count = var.logging.mode == "create_new" ? 1 : 0
 
   bucket = local.log_bucket_name
-  force_destroy = false
+  force_destroy = var.bucket_config.force_destroy
 
   tags = merge(local.common_tags, {
     Name = local.log_bucket_name
@@ -142,7 +142,7 @@ resource "aws_s3_bucket_versioning" "main" {
   bucket = aws_s3_bucket.main.id
   versioning_configuration {
     status     = var.bucket_config.versioning_enabled ? "Enabled" : "Disabled"
-    mfa_delete = var.bucket_config.mfa_delete ? "Enabled" : "Disabled"
+    # mfa_delete = var.bucket_config.mfa_delete ? "Enabled" : "Disabled" // can't set w/o root
   }
 }
 
