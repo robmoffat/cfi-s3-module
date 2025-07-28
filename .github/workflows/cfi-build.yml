@@ -22,8 +22,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/TerraformRole
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Terraform
@@ -54,34 +53,34 @@ jobs:
             service=$(jq -r ".targets[$i].service" $CONFIG_FILE)
 
             echo "🚀 Deploying module: $name (id: $id)"
-            pushd "$path" > /dev/null
 
-            terraform init
+            (
+                # Trap to ensure destroy always runs
+                cleanup() {
+                    echo "🧨 Running final destroy for $id (even if script failed)..."
+                    pushd "$path" > /dev/null
+                    terraform destroy -auto-approve -var="region=$AWS_REGION" || true
+                    popd > /dev/null
+                }
+                trap cleanup EXIT
+            
+                echo "🔧 Applying module $id..."
+                pushd "$path" > /dev/null
+                terraform init
+                terraform apply -auto-approve -var="region=$AWS_REGION"
+                popd > /dev/null
 
-            echo "🧹 Destroying previous resources for $id..."
-            terraform destroy -auto-approve -var="region=$AWS_REGION"
+                echo "🔍 Running Prowler scan for $id..."
+                pushd prowler > /dev/null
+                eval "$(poetry env info --path)/bin/activate"
+                poetry run python prowler-cli.py "$provider" --service "$service"
 
-            echo "🔧 Applying module $id..."
-            terraform apply -auto-approve -var="region=$AWS_REGION"
+                echo "📦 Capturing latest OCSF output..."
+                latest_file=$(ls -t output/*.ocsf.json | head -n 1)
+                cp "$latest_file" "../$OUTPUT_DIR/${id}_ocsf.json"
 
-            popd > /dev/null
-            pushd prowler > /dev/null
-
-            echo "🔍 Running Prowler scan for $id..."
-            eval "$(poetry env info --path)/bin/activate"
-            poetry run python prowler-cli.py "$provider" --service "$service"
-
-            echo "📦 Capturing latest OCSF output..."
-            latest_file=$(ls -t output/*.ocsf.json | head -n 1)
-            cp "$latest_file" "../$OUTPUT_DIR/${id}_ocsf.json"
-
-            popd > /dev/null
-            pushd "$path" > /dev/null
-
-            echo "🧨 Final destroy for $id..."
-            terraform destroy -auto-approve -var="region=$AWS_REGION"
-
-            popd > /dev/null
+                popd > /dev/null
+            )
           done
 
           echo "📝 Copying metadata config to results"
