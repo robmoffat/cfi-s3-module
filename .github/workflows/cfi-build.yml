@@ -29,9 +29,6 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init
-        run: terraform init
-
       - name: Install Prowler and Python deps
         run: |
           git clone https://github.com/prowler-cloud/prowler
@@ -60,6 +57,13 @@ jobs:
             pushd "$path" > /dev/null
 
             terraform init
+
+            if [ -f terraform.tfstate ] || [ -f terraform.tfstate.backup ]; then
+                echo "🧹 Found existing state — destroying previous resources for $id..."
+                terraform destroy -auto-approve -var="region=$AWS_REGION"
+            fi
+
+            echo "🔧 Applying module $id..."
             terraform apply -auto-approve -var="region=$AWS_REGION"
 
             popd > /dev/null
@@ -76,7 +80,8 @@ jobs:
             popd > /dev/null
             pushd "$path" > /dev/null
 
-            terraform destroy -auto-approve
+            echo "🧨 Final destroy for $id..."
+            terraform destroy -auto-approve -var="region=$AWS_REGION"
 
             popd > /dev/null
           done
@@ -89,7 +94,3 @@ jobs:
         with:
           name: prowler-ocsf-results
           path: ${{ env.OUTPUT_DIR }}/ocsf.json
-
-      - name: Terraform Destroy
-        if: always() # Always run even if Prowler fails
-        run: terraform destroy -auto-approve -var="region=$AWS_REGION"
