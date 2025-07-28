@@ -32,9 +32,6 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var="region=$AWS_REGION"
-
       - name: Clone Prowler
         run: |
           git clone --depth 1 https://github.com/prowler-cloud/prowler.git
