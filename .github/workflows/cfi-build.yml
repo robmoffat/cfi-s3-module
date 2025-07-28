@@ -53,7 +53,7 @@ jobs:
           set -euo pipefail
 
           CONFIG_FILE=config/terraform_targets.json
-          OUTPUT_DIR=prowler-results
+          OUTPUT_DIR=results
           mkdir -p "$OUTPUT_DIR"
 
           count=$(jq '.targets | length' $CONFIG_FILE)
@@ -87,12 +87,11 @@ jobs:
                 echo "🔍 Running Prowler scan for $id..."
                 pushd prowler > /dev/null
                 poetry run python prowler-cli.py "$provider" --service "$service"
+                popd > /dev/null
 
                 echo "📦 Capturing latest OCSF output..."
-                latest_file=$(ls -t output/*.ocsf.json | head -n 1)
-                cp "$latest_file" "../$OUTPUT_DIR/${id}_ocsf.json"
-
-                popd > /dev/null
+                latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
+                cp "$latest_file" "$OUTPUT_DIR/${id}_ocsf.json"
             )
           done
 
