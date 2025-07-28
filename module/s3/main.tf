@@ -138,6 +138,7 @@ resource "aws_cloudwatch_log_group" "this" {
   kms_key_id       = var.kms_key.create ? aws_kms_key.this[0].arn : var.kms_key.key_arn
 
   tags = local.common_tags
+  depends_on = [ aws_kms_key.this ]
 }
 
 # Main S3 bucket
