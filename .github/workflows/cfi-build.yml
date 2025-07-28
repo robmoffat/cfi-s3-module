@@ -71,6 +71,7 @@ jobs:
             (
                 # Trap to ensure destroy always runs
                 cleanup() {
+                    pwd
                     echo "🧨 Running final destroy for $id (even if script failed)..."
                     pushd "$path" > /dev/null
                     terraform destroy -auto-approve -var="region=$AWS_REGION" || true
