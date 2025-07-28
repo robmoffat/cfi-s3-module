@@ -8,13 +8,17 @@ provider "aws" {
   region = var.region
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 
 data "aws_caller_identity" "current" {}
 
 module "secure_s3" {
   source      = "../../../modules/s3"
   prefix      = "prod"
-  bucket_name = "my-secure-s3-bucket-20250423"
+  bucket_name = "my-secure-s3-bucket-${random_id.suffix.hex}"
 
   kms_key = {
     create = true

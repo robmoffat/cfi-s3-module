@@ -64,7 +64,7 @@ resource "aws_kms_key" "this" {
         Resource = "*",
         Condition = {
           ArnLike = {
-             "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
+             "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
           }
         }
       }
@@ -125,6 +125,7 @@ resource "aws_cloudwatch_log_group" "this" {
   kms_key_id       = var.kms_key.create ? aws_kms_key.this[0].arn : var.kms_key.key_arn
 
   tags = local.common_tags
+  depends_on = [aws_kms_key.this]
 }
 
 # Main S3 bucket
