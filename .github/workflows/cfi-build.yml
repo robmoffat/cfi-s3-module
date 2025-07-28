@@ -58,10 +58,8 @@ jobs:
 
             terraform init
 
-            if [ -f terraform.tfstate ] || [ -f terraform.tfstate.backup ]; then
-                echo "🧹 Found existing state — destroying previous resources for $id..."
-                terraform destroy -auto-approve -var="region=$AWS_REGION"
-            fi
+            echo "🧹 Destroying previous resources for $id..."
+            terraform destroy -auto-approve -var="region=$AWS_REGION"
 
             echo "🔧 Applying module $id..."
             terraform apply -auto-approve -var="region=$AWS_REGION"
