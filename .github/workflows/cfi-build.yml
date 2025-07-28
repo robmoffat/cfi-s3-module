@@ -33,7 +33,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -var="region=$AWS_REGION"
 
       - name: Clone Prowler
         run: |
@@ -99,4 +99,4 @@ jobs:
 
       - name: Terraform Destroy
         if: always() # Always run even if Prowler fails
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -var="region=$AWS_REGION"
