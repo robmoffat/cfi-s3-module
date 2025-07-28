@@ -87,7 +87,7 @@ jobs:
 
                 echo "🔍 Running Prowler scan for $id..."
                 pushd prowler > /dev/null
-                poetry run python prowler-cli.py "$provider" --service "$service"
+                poetry run python prowler-cli.py "$provider" --service "$service" || echo "⚠️  Prowler exited with error but continuing"
                 popd > /dev/null
 
                 echo "📦 Capturing latest OCSF output..."
