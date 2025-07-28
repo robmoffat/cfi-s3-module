@@ -39,8 +39,8 @@ jobs:
             ~/.cache/pypoetry
             ~/.virtualenvs
             prowler/.venv
-            key: prowler-${{ hashFiles('prowler/poetry.lock') }}
-            restore-keys: prowler-
+          key: prowler-${{ hashFiles('prowler/poetry.lock') }}
+          restore-keys: prowler-
 
       - name: Install Prowler and Python deps
         run: |
