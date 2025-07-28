@@ -8,7 +8,7 @@ locals {
 }
 
 module "s3_bucket" {
-  source = "../../"
+  source = "../../../"
 
   bucket = local.name
   
