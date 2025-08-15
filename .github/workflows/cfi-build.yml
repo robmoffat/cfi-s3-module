@@ -107,36 +107,49 @@ jobs:
             
                 echo "🔧 Applying module $id..."
                 pushd "$path" > /dev/null
+                prowler_success=false
+                
                 if [ "$provider" = "aws" ]; then
                   terraform init
                   terraform apply -auto-approve -var="region=$AWS_REGION"
+                  
+                  echo "🔍 Running Prowler scan for $id..."
+                  pushd ../prowler > /dev/null
+                  poetry run python prowler-cli.py aws --service "$service"
+                  prowler_success=$?
+                  popd > /dev/null
+                  
                 elif [ "$provider" = "azure" ]; then
                   terraform init
                   terraform apply -auto-approve
+                  
+                  echo "🔍 Running Prowler scan for $id..."
+                  pushd ../prowler > /dev/null
+                  poetry run python prowler-cli.py azure--service "$service" --az-cli-auth
+                  prowler_success=$?
+                  popd > /dev/null
+                  
                 elif [ "$provider" = "gcp" ]; then
                   terraform init
-                  terraform apply -auto-approve 
+                  terraform apply -auto-approve
+                  
+                  echo "🔍 Running Prowler scan for $id..."
+                  pushd ../prowler > /dev/null
+                  poetry run python prowler-cli.py gcp --service "$service"
+                  prowler_success=$?
+                  popd > /dev/null
                 fi
 
                 popd > /dev/null
 
-                echo "🔍 Running Prowler scan for $id..."
-                pushd prowler > /dev/null
-                prowler_success=false
-                if poetry run python prowler-cli.py "$provider" --service "$service"; then
-                  prowler_success=true
-                  echo "✅ Prowler scan completed successfully for $id"
+                if [ "$prowler_success" = true ]; then
                   echo "📦 Capturing latest OCSF output..."
                   latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
                   cp "$latest_file" "$OUTPUT_DIR/${id}_ocsf.json"
                 else
-                  echo "⚠️  Prowler exited with error for $id"
-                  echo "📋 Prowler error details:"
-                  echo "Exit code: $?"
                   echo "⏭️  Skipping OCSF output capture for $id due to Prowler failure"
-                  echo "Continuing with next module..."     
+                  echo "Continuing with next module..."
                 fi
-                popd > /dev/null
 
               
             )
