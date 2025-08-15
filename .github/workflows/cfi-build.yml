@@ -17,7 +17,7 @@ jobs:
       AWS_REGION: us-east-1
       OUTPUT_DIR: results
       PROWLER_ARGS: "aws -M json-ocsf -q"
-      CONFIG_FILE: config/terraform_targets.json
+      TARGETS_DIR: config
 
     steps:
       - name: Checkout repo
@@ -58,20 +58,34 @@ jobs:
         run: |
           set -euo pipefail
 
-          CONFIG_FILE=config/terraform_targets.json
+          TARGETS_DIR=config
           mkdir -p "$OUTPUT_DIR"
 
-          count=$(jq '.targets | length' $CONFIG_FILE)
-          echo "🔍 Found $count Terraform modules in $CONFIG_FILE"
+          # Find all target JSON files
+          target_files=($TARGETS_DIR/*.json)
+          count=${#target_files[@]}
+          echo "🔍 Found $count Terraform target files in $TARGETS_DIR"
 
-          for i in $(seq 0 $(($count - 1))); do
-            id=$(jq -r ".targets[$i].id" $CONFIG_FILE)
-            name=$(jq -r ".targets[$i].name" $CONFIG_FILE)
-            path=$(jq -r ".targets[$i].path" $CONFIG_FILE)
-            provider=$(jq -r ".targets[$i].provider" $CONFIG_FILE)
-            service=$(jq -r ".targets[$i].service" $CONFIG_FILE)
+          # Create a combined modules.json for the results
+          echo '{"targets": []}' > "$OUTPUT_DIR/modules.json"
+
+          for target_file in "${target_files[@]}"; do
+            # Skip if not a JSON file
+            [[ "$target_file" == *".json" ]] || continue
+            
+            echo "📖 Reading target file: $target_file"
+            
+            id=$(jq -r '.id' "$target_file")
+            name=$(jq -r '.name' "$target_file")
+            path=$(jq -r '.path' "$target_file")
+            provider=$(jq -r '.provider' "$target_file")
+            service=$(jq -r '.service' "$target_file")
 
             echo "🚀 Deploying module: $name (id: $id)"
+
+            # Add target to combined modules.json
+            jq --argjson target "$(cat "$target_file")" '.targets += [$target]' "$OUTPUT_DIR/modules.json" > "$OUTPUT_DIR/modules.json.tmp"
+            mv "$OUTPUT_DIR/modules.json.tmp" "$OUTPUT_DIR/modules.json"
 
             (
                 # Trap to ensure destroy always runs
@@ -116,8 +130,7 @@ jobs:
             )
           done
 
-          echo "📝 Copying metadata config to results"
-          cp "$CONFIG_FILE" "$OUTPUT_DIR/modules.json"
+          echo "📝 Combined metadata config saved to results/modules.json"
 
       - name: Upload OCSF scan results
         uses: actions/upload-artifact@v4
