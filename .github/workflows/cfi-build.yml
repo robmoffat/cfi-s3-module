@@ -28,6 +28,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/TerraformRole
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Configure Azure Credentials (OIDC)
         uses: azure/login@v1
         with:
@@ -121,12 +122,23 @@ jobs:
 
                 echo "🔍 Running Prowler scan for $id..."
                 pushd prowler > /dev/null
-                poetry run python prowler-cli.py "$provider" --service "$service" || echo "⚠️  Prowler exited with error but continuing"
+                prowler_success=false
+                if poetry run python prowler-cli.py "$provider" --service "$service"; then
+                  prowler_success=true
+                  echo "✅ Prowler scan completed successfully for $id"
+                  echo "📦 Capturing latest OCSF output..."
+                  latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
+                  cp "$latest_file" "$OUTPUT_DIR/${id}_ocsf.json"
+                else
+                  echo "⚠️  Prowler exited with error for $id"
+                  echo "📋 Prowler error details:"
+                  echo "Exit code: $?"
+                  echo "⏭️  Skipping OCSF output capture for $id due to Prowler failure"
+                  echo "Continuing with next module..."     
+                fi
                 popd > /dev/null
 
-                echo "📦 Capturing latest OCSF output..."
-                latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
-                cp "$latest_file" "$OUTPUT_DIR/${id}_ocsf.json"
+              
             )
           done
 
