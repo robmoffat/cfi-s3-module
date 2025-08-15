@@ -23,15 +23,21 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/TerraformRole
           aws-region: ${{ env.AWS_REGION }}
+      - name: Configure Azure Credentials (OIDC)
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
-    
+
       - name: Cache Python Poetry virtualenv
         uses: actions/cache@v4
         with:
@@ -73,15 +79,30 @@ jobs:
                     pwd
                     echo "🧨 Running final destroy for $id (even if script failed)..."
                     pushd "$path" > /dev/null
-                    terraform destroy -auto-approve -var="region=$AWS_REGION" || true
+                    if [ "$provider" = "aws" ]; then
+                      terraform destroy -auto-approve -var="region=$AWS_REGION" || true
+                    elif [ "$provider" = "azure" ]; then
+                      terraform destroy -auto-approve || true
+                    elif [ "$provider" = "gcp" ]; then
+                      terraform destroy -auto-approve || true
+                    fi
                     popd > /dev/null
                 }
                 trap cleanup EXIT
             
                 echo "🔧 Applying module $id..."
                 pushd "$path" > /dev/null
-                terraform init
-                terraform apply -auto-approve -var="region=$AWS_REGION"
+                if [ "$provider" = "aws" ]; then
+                  terraform init
+                  terraform apply -auto-approve -var="region=$AWS_REGION"
+                elif [ "$provider" = "azure" ]; then
+                  terraform init
+                  terraform apply -auto-approve
+                elif [ "$provider" = "gcp" ]; then
+                  terraform init
+                  terraform apply -auto-approve 
+                fi
+
                 popd > /dev/null
 
                 echo "🔍 Running Prowler scan for $id..."
