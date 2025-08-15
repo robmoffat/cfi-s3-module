@@ -10,26 +10,66 @@ on:
     branches: [main]
 
 jobs:
-  deploy-and-scan:
+  prepare-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate matrix from config files
+        id: set-matrix
+        run: |
+          TARGETS_DIR=config
+          matrix='{"target": []}'
+
+          for target_file in $TARGETS_DIR/*.json; do
+            if [[ "$target_file" == *".json" ]]; then
+              id=$(jq -r '.id' "$target_file")
+              name=$(jq -r '.name' "$target_file")
+              path=$(jq -r '.path' "$target_file")
+              provider=$(jq -r '.provider' "$target_file")
+              service=$(jq -r '.service' "$target_file")
+              
+              target_json=$(jq -c '.' "$target_file")
+              matrix=$(echo "$matrix" | jq --argjson target "$target_json" '.target += [$target]')
+            fi
+          done
+
+          echo "matrix={\"target\": $(echo "$matrix" | jq -c '.target')}" >> $GITHUB_OUTPUT
+          echo "Generated matrix with $(echo "$matrix" | jq '.target | length') targets"
+
+  deploy-and-scan:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ${{ fromJson(needs.prepare-matrix.outputs.matrix).target }}
+      fail-fast: false
 
     env:
       AWS_REGION: us-east-1
       OUTPUT_DIR: results
-      PROWLER_ARGS: "aws -M json-ocsf -q"
-      TARGETS_DIR: config
+      TARGET_ID: ${{ matrix.target.id }}
+      TARGET_NAME: ${{ matrix.target.name }}
+      TARGET_PATH: ${{ matrix.target.path }}
+      TARGET_PROVIDER: ${{ matrix.target.provider }}
+      TARGET_SERVICE: ${{ matrix.target.service }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Configure AWS Credentials (OIDC)
+        if: matrix.target.provider == 'aws'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/TerraformRole
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Configure Azure Credentials (OIDC)
+        if: matrix.target.provider == 'azure'
         uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -55,110 +95,121 @@ jobs:
           cd prowler
           pipx install poetry
           poetry install
-      - name: Read config and run modules
+
+      - name: Deploy and scan module
         run: |
           set -euo pipefail
 
-          TARGETS_DIR=config
+          echo "🚀 Processing module: $TARGET_NAME (id: $TARGET_ID)"
+          echo "📁 Path: $TARGET_PATH"
+          echo "☁️  Provider: $TARGET_PROVIDER"
+          echo "🔧 Service: $TARGET_SERVICE"
+
           mkdir -p "$OUTPUT_DIR"
 
-          # Find all target JSON files
-          target_files=($TARGETS_DIR/*.json)
-          count=${#target_files[@]}
-          echo "🔍 Found $count Terraform target files in $TARGETS_DIR"
-
-          # Create a combined modules.json for the results
-          echo '{"targets": []}' > "$OUTPUT_DIR/modules.json"
-
-          for target_file in "${target_files[@]}"; do
-            # Skip if not a JSON file
-            [[ "$target_file" == *".json" ]] || continue
-            
-            echo "📖 Reading target file: $target_file"
-            
-            id=$(jq -r '.id' "$target_file")
-            name=$(jq -r '.name' "$target_file")
-            path=$(jq -r '.path' "$target_file")
-            provider=$(jq -r '.provider' "$target_file")
-            service=$(jq -r '.service' "$target_file")
-
-            echo "🚀 Deploying module: $name (id: $id)"
-
-            # Add target to combined modules.json
-            jq --argjson target "$(cat "$target_file")" '.targets += [$target]' "$OUTPUT_DIR/modules.json" > "$OUTPUT_DIR/modules.json.tmp"
-            mv "$OUTPUT_DIR/modules.json.tmp" "$OUTPUT_DIR/modules.json"
-
-            (
-                # Trap to ensure destroy always runs
-                cleanup() {
-                    pwd
-                    echo "🧨 Running final destroy for $id (even if script failed)..."
-                    pushd "$path" > /dev/null
-                    if [ "$provider" = "aws" ]; then
-                      terraform destroy -auto-approve -var="region=$AWS_REGION" || true
-                    elif [ "$provider" = "azure" ]; then
-                      terraform destroy -auto-approve || true
-                    elif [ "$provider" = "gcp" ]; then
-                      terraform destroy -auto-approve || true
-                    fi
-                    popd > /dev/null
-                }
-                trap cleanup EXIT
-            
-                echo "🔧 Applying module $id..."
-                pushd "$path" > /dev/null
-                prowler_success=false
-                
-                if [ "$provider" = "aws" ]; then
-                  terraform init
-                  terraform apply -auto-approve -var="region=$AWS_REGION"
-                  
-                  echo "🔍 Running Prowler scan for $id..."
-                  pushd ../prowler > /dev/null
-                  poetry run python prowler-cli.py aws --service "$service"
-                  prowler_success=$?
+          (
+              # Trap to ensure destroy always runs
+              cleanup() {
+                  echo "🧨 Running final destroy for $TARGET_ID (even if script failed)..."
+                  pushd "$TARGET_PATH" > /dev/null
+                  if [ "$TARGET_PROVIDER" = "aws" ]; then
+                    terraform destroy -auto-approve -var="region=$AWS_REGION" || true
+                  elif [ "$TARGET_PROVIDER" = "azure" ]; then
+                    terraform destroy -auto-approve || true
+                  elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+                    terraform destroy -auto-approve || true
+                  fi
                   popd > /dev/null
-                  
-                elif [ "$provider" = "azure" ]; then
-                  terraform init
-                  terraform apply -auto-approve
-                  
-                  echo "🔍 Running Prowler scan for $id..."
-                  pushd ../prowler > /dev/null
-                  poetry run python prowler-cli.py azure--service "$service" --az-cli-auth
-                  prowler_success=$?
-                  popd > /dev/null
-                  
-                elif [ "$provider" = "gcp" ]; then
-                  terraform init
-                  terraform apply -auto-approve
-                  
-                  echo "🔍 Running Prowler scan for $id..."
-                  pushd ../prowler > /dev/null
-                  poetry run python prowler-cli.py gcp --service "$service"
-                  prowler_success=$?
-                  popd > /dev/null
-                fi
+              }
+              trap cleanup EXIT
 
-                popd > /dev/null
-
-                if [ "$prowler_success" = true ]; then
-                  echo "📦 Capturing latest OCSF output..."
-                  latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
-                  cp "$latest_file" "$OUTPUT_DIR/${id}_ocsf.json"
-                else
-                  echo "⏭️  Skipping OCSF output capture for $id due to Prowler failure"
-                  echo "Continuing with next module..."
-                fi
-
+              echo "🔧 Applying module $TARGET_ID..."
+              pushd "$TARGET_PATH" > /dev/null
+              prowler_success=false
               
-            )
-          done
+              if [ "$TARGET_PROVIDER" = "aws" ]; then
+                terraform init
+                terraform apply -auto-approve -var="region=$AWS_REGION"
+                
+                echo "🔍 Running Prowler scan for $TARGET_ID..."
+                popd > /dev/null
+                pushd ../prowler > /dev/null
+                poetry run python prowler-cli.py aws --service "$TARGET_SERVICE"
+                prowler_success=$?
+                
+              elif [ "$TARGET_PROVIDER" = "azure" ]; then
+                terraform init
+                terraform apply -auto-approve
+                
+                echo "🔍 Running Prowler scan for $TARGET_ID..."
+                popd > /dev/null
+                pushd ../prowler > /dev/null
+                poetry run python prowler-cli.py azure --service "$TARGET_SERVICE" --az-cli-auth
+                prowler_success=$?
+                
+              elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+                terraform init
+                terraform apply -auto-approve
+                
+                echo "🔍 Running Prowler scan for $TARGET_ID..."
+                popd > /dev/null
+                pushd ../prowler > /dev/null
+                poetry run python prowler-cli.py gcp --service "$TARGET_SERVICE"
+                prowler_success=$?
+              fi
 
-          echo "📝 Combined metadata config saved to results/modules.json"
+              popd > /dev/null
+              if [ "$prowler_success" = 0 ]; then
+                echo "📦 Capturing latest OCSF output..."
+                latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
+                cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
+                echo "✅ Successfully captured OCSF output for $TARGET_ID"
+              else
+                echo "⏭️  Skipping OCSF output capture for $TARGET_ID due to Prowler failure (exit code: $prowler_success)"
+              fi
+          )
 
-      - name: Upload OCSF scan results
+      - name: Upload module results
         uses: actions/upload-artifact@v4
         with:
-          name: cfi-results
+          name: cfi-results-${{ matrix.target.id }}
           path: ${{ env.OUTPUT_DIR }}
+
+  combine-results:
+    needs: deploy-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cfi-results-*
+          merge-multiple: true
+
+      - name: Combine results and create modules.json
+        run: |
+          echo "📝 Combining results from all modules..."
+
+          # Create combined modules.json
+          echo '{"targets": []}' > modules.json
+
+          # Read config files and add to modules.json
+          for config_file in config/*.json; do
+            if [[ "$config_file" == *".json" ]]; then
+              echo "Adding $config_file to modules.json"
+              jq --argjson target "$(cat "$config_file")" '.targets += [$target]' modules.json > modules.json.tmp
+              mv modules.json.tmp modules.json
+            fi
+          done
+
+          echo "📊 Final modules.json created with $(jq '.targets | length' modules.json) targets"
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfi-results-combined
+          path: |
+            modules.json
+            *.ocsf.json
