@@ -163,20 +163,22 @@ jobs:
               
               if [ "$prowler_success" = 0 ]; then
                 echo "✅ Prowler scan completed successfully for $TARGET_ID"
-                if ls prowler/output/*.ocsf.json 1> /dev/null 2>&1; then
-                  latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
-                  if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
-                    cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
-                    echo "✅ Successfully captured OCSF output for $TARGET_ID"
-                  else
-                    echo "⚠️  No valid OCSF file found for $TARGET_ID"
-                  fi
-                else
-                  echo "⚠️  No OCSF output files found for $TARGET_ID"
-                fi
               else
                 echo "⚠️  Prowler scan failed for $TARGET_ID (exit code: $prowler_success) but continuing workflow"
               fi
+
+              if ls prowler/output/*.ocsf.json 1> /dev/null 2>&1; then
+                latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
+                if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
+                  cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
+                  echo "✅ Successfully captured OCSF output for $TARGET_ID"
+                else
+                  echo "⚠️  No valid OCSF file found for $TARGET_ID"
+                fi
+              else
+                echo "⚠️  No OCSF output files found for $TARGET_ID"
+              fi
+              
           )
 
       - name: Upload module results
@@ -184,42 +186,3 @@ jobs:
         with:
           name: cfi-results-${{ matrix.target.id }}
           path: ${{ env.OUTPUT_DIR }}
-
-  combine-results:
-    needs: deploy-and-scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Download all results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: cfi-results-*
-          merge-multiple: true
-
-      - name: Combine results and create modules.json
-        run: |
-          echo "📝 Combining results from all modules..."
-
-          # Create combined modules.json
-          echo '{"targets": []}' > modules.json
-
-          # Read config files and add to modules.json
-          for config_file in config/*.json; do
-            if [[ "$config_file" == *".json" ]]; then
-              echo "Adding $config_file to modules.json"
-              jq --argjson target "$(cat "$config_file")" '.targets += [$target]' modules.json > modules.json.tmp
-              mv modules.json.tmp modules.json
-            fi
-          done
-
-          echo "📊 Final modules.json created with $(jq '.targets | length' modules.json) targets"
-
-      - name: Upload combined results
-        uses: actions/upload-artifact@v4
-        with:
-          name: cfi-results-combined
-          path: |
-            modules.json
-            *.ocsf.json
