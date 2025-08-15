@@ -133,7 +133,7 @@ jobs:
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 popd > /dev/null
-                pushd ../prowler > /dev/null
+                pushd prowler > /dev/null
                 poetry run python prowler-cli.py aws --service "$TARGET_SERVICE"
                 prowler_success=$?
                 
@@ -143,7 +143,7 @@ jobs:
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 popd > /dev/null
-                pushd ../prowler > /dev/null
+                pushd prowler > /dev/null
                 poetry run python prowler-cli.py azure --service "$TARGET_SERVICE" --az-cli-auth
                 prowler_success=$?
                 
@@ -153,7 +153,7 @@ jobs:
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 popd > /dev/null
-                pushd ../prowler > /dev/null
+                pushd prowler > /dev/null
                 poetry run python prowler-cli.py gcp --service "$TARGET_SERVICE"
                 prowler_success=$?
               fi
