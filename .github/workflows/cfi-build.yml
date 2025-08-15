@@ -111,7 +111,8 @@ jobs:
               # Trap to ensure destroy always runs
               cleanup() {
                   echo "🧨 Running final destroy for $TARGET_ID (even if script failed)..."
-                  pushd "$TARGET_PATH" > /dev/null
+                  cd "$GITHUB_WORKSPACE/$TARGET_PATH"
+
                   if [ "$TARGET_PROVIDER" = "aws" ]; then
                     terraform destroy -auto-approve -var="region=$AWS_REGION" || true
                   elif [ "$TARGET_PROVIDER" = "azure" ]; then
@@ -119,53 +120,59 @@ jobs:
                   elif [ "$TARGET_PROVIDER" = "gcp" ]; then
                     terraform destroy -auto-approve || true
                   fi
-                  popd > /dev/null
               }
               trap cleanup EXIT
 
               echo "🔧 Applying module $TARGET_ID..."
-              pushd "$TARGET_PATH" > /dev/null
-              prowler_success=false
-              
+              prowler_success=0
+
+              cd "$GITHUB_WORKSPACE/$TARGET_PATH"
               if [ "$TARGET_PROVIDER" = "aws" ]; then
                 terraform init
                 terraform apply -auto-approve -var="region=$AWS_REGION"
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
-                popd > /dev/null
-                pushd prowler > /dev/null
+                cd "$GITHUB_WORKSPACE/prowler"
+                set +e  # Temporarily disable exit on error for Prowler
                 poetry run python prowler-cli.py aws --service "$TARGET_SERVICE"
                 prowler_success=$?
+                set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "azure" ]; then
                 terraform init
                 terraform apply -auto-approve
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
-                popd > /dev/null
-                pushd prowler > /dev/null
+                cd "$GITHUB_WORKSPACE/prowler"
+                set +e  # Temporarily disable exit on error for Prowler
                 poetry run python prowler-cli.py azure --service "$TARGET_SERVICE" --az-cli-auth
                 prowler_success=$?
+                set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "gcp" ]; then
                 terraform init
                 terraform apply -auto-approve
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
-                popd > /dev/null
-                pushd prowler > /dev/null
+                cd "$GITHUB_WORKSPACE/prowler"
+                set +e  # Temporarily disable exit on error for Prowler
                 poetry run python prowler-cli.py gcp --service "$TARGET_SERVICE"
                 prowler_success=$?
+                set -e  # Re-enable exit on error
               fi
-
-              popd > /dev/null
+              
               if [ "$prowler_success" = 0 ]; then
-                echo "📦 Capturing latest OCSF output..."
+                echo "✅ Prowler scan completed successfully for $TARGET_ID"
+                if ls prowler/output/*.ocsf.json 1> /dev/null 2>&1; then
                 latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
-                cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
-                echo "✅ Successfully captured OCSF output for $TARGET_ID"
+                if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
+                  cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
+                  echo "✅ Successfully captured OCSF output for $TARGET_ID"
+                else
+                  echo "⚠️  No valid OCSF file found for $TARGET_ID"
+                fi
               else
-                echo "⏭️  Skipping OCSF output capture for $TARGET_ID due to Prowler failure (exit code: $prowler_success)"
+                echo "⚠️  Prowler scan failed for $TARGET_ID (exit code: $prowler_success) but continuing workflow"
               fi
           )
 
