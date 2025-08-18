@@ -138,7 +138,7 @@ jobs:
               cd "$GITHUB_WORKSPACE/$TARGET_PATH"
               if [ "$TARGET_PROVIDER" = "aws" ]; then
                 terraform init
-                terraform apply -auto-approve -var="region=$AWS_REGION"
+                terraform apply -auto-approve -var="region=$AWS_REGION" -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
@@ -149,7 +149,7 @@ jobs:
                 
               elif [ "$TARGET_PROVIDER" = "azure" ]; then
                 terraform init
-                terraform apply -auto-approve
+                terraform apply -auto-approve -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
@@ -160,7 +160,7 @@ jobs:
                 
               elif [ "$TARGET_PROVIDER" = "gcp" ]; then
                 terraform init
-                terraform apply -auto-approve
+                terraform apply -auto-approve  -var 'project_id=woven-precept-353210' -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
