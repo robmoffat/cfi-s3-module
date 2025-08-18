@@ -167,10 +167,10 @@ jobs:
                 echo "⚠️  Prowler scan failed for $TARGET_ID (exit code: $prowler_success) but continuing workflow"
               fi
 
-              if ls prowler/output/*.ocsf.json 1> /dev/null 2>&1; then
-                latest_file=$(ls -t prowler/output/*.ocsf.json | head -n 1)
+              if ls output/*.ocsf.json 1> /dev/null 2>&1; then
+                latest_file=$(ls -t output/*.ocsf.json | head -n 1)
                 if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
-                  cp "$latest_file" "$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
+                  cp "$latest_file" "../$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
                   echo "✅ Successfully captured OCSF output for $TARGET_ID"
                 else
                   echo "⚠️  No valid OCSF file found for $TARGET_ID"
