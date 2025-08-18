@@ -81,7 +81,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           token_format: "id_token"
-          id_token_audience: "https://iam.googleapis.com"
+          id_token_audience: "https://iam.googleapis.com/projects/404011529340/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
           workload_identity_provider: "projects/404011529340/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
           service_account: "github-actions-service-account@woven-precept-353210.iam.gserviceaccount.com"
 
@@ -123,11 +123,11 @@ jobs:
                   cd "$GITHUB_WORKSPACE/$TARGET_PATH"
 
                   if [ "$TARGET_PROVIDER" = "aws" ]; then
-                    terraform destroy -auto-approve -var="region=$AWS_REGION" || true
+                    terraform destroy -auto-approve -var="region=$AWS_REGION" -input=false || true
                   elif [ "$TARGET_PROVIDER" = "azure" ]; then
-                    terraform destroy -auto-approve || true
+                    terraform destroy -auto-approve -input=false || true
                   elif [ "$TARGET_PROVIDER" = "gcp" ]; then
-                    terraform destroy -auto-approve || true
+                    terraform destroy -auto-approve -input=false || true
                   fi
               }
               trap cleanup EXIT
@@ -159,6 +159,8 @@ jobs:
                 set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+                export TF_VAR_project_id="woven-precept-353210"
+
                 terraform init
                 terraform apply -auto-approve  -var 'project_id=woven-precept-353210' -input=false
                 
