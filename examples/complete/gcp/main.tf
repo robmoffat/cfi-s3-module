@@ -80,8 +80,8 @@ resource "google_storage_bucket" "secure_bucket" {
   }
 
   labels = {
-    Environment = "Production"
-    Owner       = "CFI"
+    environment = "production"
+    owner       = "cfi"
   }
 }
 
@@ -104,9 +104,9 @@ resource "google_storage_bucket" "log_bucket" {
   }
 
   labels = {
-    Environment = "Production"
-    Owner       = "CFI"
-    Purpose     = "Logs"
+    environment = "production"
+    owner       = "cfi"
+    purpose     = "logs"
   }
 }
 
@@ -124,11 +124,9 @@ resource "google_kms_crypto_key" "bucket_key" {
     prevent_destroy = false
   }
 
-  rotation_schedule = "2592000s" # 30 days
-
   labels = {
-    Environment = "Production"
-    Owner       = "CFI"
+    environment = "production"
+    owner       = "cfi"
   }
 }
 
