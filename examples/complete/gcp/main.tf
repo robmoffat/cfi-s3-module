@@ -111,9 +111,10 @@ resource "google_storage_bucket" "log_bucket" {
 }
 
 # Create a KMS key for bucket encryption
+# For multi-region buckets, we need to use a multi-region KMS key
 resource "google_kms_key_ring" "bucket_keyring" {
   name     = "cfi-bucket-keyring-${random_id.suffix.hex}"
-  location = var.region
+  location = var.location  # Use the same location as the bucket
 }
 
 resource "google_kms_crypto_key" "bucket_key" {
@@ -130,14 +131,17 @@ resource "google_kms_crypto_key" "bucket_key" {
   }
 }
 
-# IAM binding for the KMS key
-resource "google_kms_crypto_key_iam_binding" "crypto_key" {
+# IAM binding for the KMS key - using member binding instead of policy binding
+resource "google_kms_crypto_key_iam_member" "crypto_key_encrypter" {
   crypto_key_id = google_kms_crypto_key.bucket_key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  members = [
-    "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com",
-    "user:terraform-user@${var.project_id}.iam.gserviceaccount.com"
-  ]
+  member        = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_kms_crypto_key_iam_member" "crypto_key_user" {
+  crypto_key_id = google_kms_crypto_key.bucket_key.id
+  role          = "roles/cloudkms.cryptoKeyUser"
+  member        = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
 # Create a sample object in the bucket
