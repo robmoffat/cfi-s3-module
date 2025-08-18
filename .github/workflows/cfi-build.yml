@@ -194,4 +194,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cfi-results-${{ matrix.target.id }}
-          path: ${{ env.OUTPUT_DIR }}
+          path: |
+            ${{ env.OUTPUT_DIR }}
+            config/${{ matrix.target.id }}.json
