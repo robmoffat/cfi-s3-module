@@ -81,6 +81,7 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           token_format: "id_token"
+          id_token_audience: "https://iam.googleapis.com"
           workload_identity_provider: "projects/404011529340/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
           service_account: "github-actions-service-account@woven-precept-353210.iam.gserviceaccount.com"
 
