@@ -81,9 +81,9 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           token_format: "id_token"
-          id_token_audience: "https://iam.googleapis.com/projects/404011529340/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
-          workload_identity_provider: "projects/404011529340/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
-          service_account: "github-actions-service-account@woven-precept-353210.iam.gserviceaccount.com"
+          id_token_audience: "https://iam.googleapis.com/projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions-service-account@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -159,10 +159,10 @@ jobs:
                 set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "gcp" ]; then
-                export TF_VAR_project_id="woven-precept-353210"
+                export TF_VAR_project_id="${{ secrets.GCP_PROJECT_ID }}"
 
                 terraform init
-                terraform apply -auto-approve  -var 'project_id=woven-precept-353210' -input=false
+                terraform apply -auto-approve  -var "project_id=${{ secrets.GCP_PROJECT_ID }}" -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"

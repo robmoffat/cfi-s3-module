@@ -1,7 +1,7 @@
 {
     "id": "secure-gcp-storage",
     "provider": "gcp",
-    "service": "storage",
+    "service": "cloudstorage",
     "name": "CCC GCP Storage Bucket Terraform Example",
     "description": "This example creates a secure GCP storage bucket with encryption, versioning, lifecycle management, and comprehensive logging enabled.",
     "path": "examples/complete/gcp",
