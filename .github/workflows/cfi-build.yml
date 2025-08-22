@@ -100,7 +100,7 @@ jobs:
 
       - name: Install Prowler and Python deps
         run: |
-          git clone https://github.com/prowler-cloud/prowler
+          git clone -b PRWLR-7257-map-ccc-objects-in-aws-provider --single-branch https://github.com/prowler-cloud/prowler
           cd prowler
           pipx install poetry
           poetry install
