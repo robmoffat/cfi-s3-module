@@ -148,6 +148,7 @@ jobs:
                 set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "azure" ]; then
+                export ARM_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
                 terraform init -upgrade
                 terraform apply -auto-approve -input=false
                 
