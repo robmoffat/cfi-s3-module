@@ -148,8 +148,7 @@ jobs:
                 set -e  # Re-enable exit on error
                 
               elif [ "$TARGET_PROVIDER" = "azure" ]; then
-                terraform init
-                terraform plan
+                terraform init -upgrade
                 terraform apply -auto-approve -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
