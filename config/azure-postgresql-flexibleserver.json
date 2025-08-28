@@ -1,0 +1,24 @@
+{
+    "id": "azure-postgresql-flexibleserver",
+    "provider": "azure",
+    "service": "database",
+    "name": "CCC Azure PostgreSQL Flexible Server Terraform Module",
+    "description": "This module creates a secure Azure Database for PostgreSQL Flexible Server with encryption, networking, and monitoring capabilities.",
+    "url": "https://registry.terraform.io/modules/Azure/avm-res-dbforpostgresql-flexibleserver/azurerm/latest",
+    "authors": [
+        {
+            "name": "Azure",
+            "github_id": "Azure",
+            "company": "Microsoft"
+        }
+    ],
+    "resources": [
+        "Microsoft.DBforPostgreSQL/flexibleServers",
+        "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+        "Microsoft.DBforPostgreSQL/flexibleServers/administrators",
+        "Microsoft.DBforPostgreSQL/flexibleServers/configurations"
+    ],
+    "specifications": [
+        "CCC.RDBMS"
+    ]
+}
