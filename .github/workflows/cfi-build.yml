@@ -149,7 +149,7 @@ jobs:
                 
               elif [ "$TARGET_PROVIDER" = "azure" ]; then
                 terraform init
-                teraform plan
+                terraform plan
                 terraform apply -auto-approve -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
