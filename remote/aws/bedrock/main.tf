@@ -1,4 +1,3 @@
 module "bedrock" {
-  source  = "aws-ia/bedrock/aws"
-  version = "0.0.29"
+  source  = "git:https://github.com/aws-ia/terraform-aws-bedrock.git/examples/agent-only?ref=v0.0.29"
 }

@@ -12,35 +12,29 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
-
 data "aws_caller_identity" "current" {}
 
-module "secure_s3" {
-  source      = "../../../modules/s3"
-  prefix      = "prod"
-  bucket_name = "my-secure-s3-bucket-${random_id.suffix.hex}"
-
-  kms_key = {
-    create = true
-    deletion_window_in_days = 7
-    enable_key_rotation = true
-    key_administrators = []
-    key_users = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/terraform-user",
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-    ]
-  }
-
-
-  logging = {
-    mode = "create_new"
-    enable_cloudwatch_logs = true
-    retention_days = 30
-    encryption_key = "create_new"
+module "bedrock" {
+  source  = "aws-ia/bedrock/aws"
+  version = "0.0.29"
+  
+  # Basic Bedrock configuration
+  model_invocation_logging_configuration = {
+    logging_config = {
+      cloudwatch_config = {
+        log_group_name = "bedrock-logs-${random_id.suffix.hex}"
+        role_arn       = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/BedrockLoggingRole"
+      }
+      s3_config = {
+        bucket_name = "bedrock-logs-${random_id.suffix.hex}"
+        prefix      = "bedrock/"
+      }
+    }
   }
 
   tags = {
     Environment = "Production"
     Owner       = "CFI"
+    Module      = "bedrock"
   }
 }
