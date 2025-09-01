@@ -25,5 +25,6 @@
         "CCC.Networking",
         "CCC.Security",
         "CCC.Monitoring"
-    ]
+    ],
+    "git": "https://github.com/Azure/terraform-azurerm-avm-res-network-virtualnetwork"
 }

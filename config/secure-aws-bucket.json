@@ -24,5 +24,6 @@
     "specifications": [
         "CCC.ObjStor",
         "CCC.KeyMgmt"
-    ]
+    ],
+    "git": "https://github.com/finos/cfi-s3-module"
 }

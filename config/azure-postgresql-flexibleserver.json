@@ -20,5 +20,6 @@
     ],
     "specifications": [
         "CCC.RDBMS"
-    ]
+    ],
+    "git": "https://github.com/Azure/terraform-azurerm-avm-res-dbforpostgresql-flexibleserver"
 }

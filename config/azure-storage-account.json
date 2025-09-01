@@ -28,5 +28,6 @@
         "CCC.Encryption",
         "CCC.Networking",
         "CCC.Monitoring"
-    ]
+    ],
+    "git": "https://github.com/Azure/terraform-azurerm-avm-res-storage-storageaccount"
 }

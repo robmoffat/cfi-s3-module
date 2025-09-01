@@ -18,5 +18,6 @@
     ],
     "specifications": [
         "CCC.ObjStor"
-    ]
+    ],
+    "git": "https://github.com/finos/cfi-s3-module"
 }
