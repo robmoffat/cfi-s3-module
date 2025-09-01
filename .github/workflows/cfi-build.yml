@@ -143,7 +143,7 @@ jobs:
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
                 set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py aws --service "$TARGET_SERVICE"
+                poetry run python prowler-cli.py aws
                 prowler_success=$?
                 set -e  # Re-enable exit on error
                 
@@ -155,7 +155,7 @@ jobs:
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
                 set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py azure --service "$TARGET_SERVICE" --az-cli-auth
+                poetry run python prowler-cli.py azure --az-cli-auth
                 prowler_success=$?
                 set -e  # Re-enable exit on error
                 
@@ -168,7 +168,7 @@ jobs:
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
                 set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py gcp --service "$TARGET_SERVICE"
+                poetry run python prowler-cli.py gcp
                 prowler_success=$?
                 set -e  # Re-enable exit on error
               fi
