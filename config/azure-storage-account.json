@@ -1,0 +1,32 @@
+{
+    "id": "azure-storage-account",
+    "provider": "azure",
+    "service": "storage",
+    "name": "CCC Azure Storage Account Terraform Module",
+    "description": "This module creates a secure Azure Storage Account with encryption, networking, monitoring, and advanced security features.",
+    "path": "remote/azure/storageaccount",
+    "authors": [
+        {
+            "name": "Azure",
+            "github_id": "Azure",
+            "company": "Microsoft"
+        }
+    ],
+    "resources": [
+        "Microsoft.Storage/storageAccounts",
+        "Microsoft.Storage/storageAccounts/blobServices",
+        "Microsoft.Storage/storageAccounts/fileServices",
+        "Microsoft.Storage/storageAccounts/queueServices",
+        "Microsoft.Storage/storageAccounts/tableServices",
+        "Microsoft.Storage/storageAccounts/privateEndpointConnections",
+        "Microsoft.Storage/storageAccounts/privateLinkResources",
+        "Microsoft.Storage/storageAccounts/managementPolicies",
+        "Microsoft.Storage/storageAccounts/objectReplicationPolicies"
+    ],
+    "specifications": [
+        "CCC.Storage",
+        "CCC.Encryption",
+        "CCC.Networking",
+        "CCC.Monitoring"
+    ]
+}
