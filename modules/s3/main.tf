@@ -50,7 +50,7 @@ resource "aws_kms_key" "this" {
         Sid    = "Allow CloudWatch Logs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${local.current_region}.amazonaws.com"
         }
         Action = [
           "kms:Encrypt*",
@@ -62,7 +62,7 @@ resource "aws_kms_key" "this" {
         Resource = "*"
         Condition = {
           ArnLike = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${local.current_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
           }
         }
       }
@@ -84,7 +84,7 @@ resource "aws_kms_key" "this" {
         Resource = "*",
         Condition = {
           ArnLike = {
-             "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
+             "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${local.current_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/s3/*"
           }
         }
       }
