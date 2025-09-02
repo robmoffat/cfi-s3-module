@@ -123,7 +123,7 @@ jobs:
                   cd "$GITHUB_WORKSPACE/$TARGET_PATH"
 
                   if [ "$TARGET_PROVIDER" = "aws" ]; then
-                    terraform destroy -auto-approve -var="region=$AWS_REGION" -input=false || true
+                    terraform destroy -auto-approve  -input=false || true
                   elif [ "$TARGET_PROVIDER" = "azure" ]; then
                     terraform destroy -auto-approve -input=false || true
                   elif [ "$TARGET_PROVIDER" = "gcp" ]; then
@@ -138,7 +138,7 @@ jobs:
               cd "$GITHUB_WORKSPACE/$TARGET_PATH"
               if [ "$TARGET_PROVIDER" = "aws" ]; then
                 terraform init
-                terraform apply -auto-approve -var="region=$AWS_REGION" -input=false
+                terraform apply -auto-approve -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
