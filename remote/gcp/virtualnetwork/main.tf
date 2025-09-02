@@ -1,4 +1,4 @@
 module "vpc" {
-  source  = "terraform-google-modules/network/google"
-  version = "~> 11.1.1"
+  source = "git::https://github.com/terraform-google-modules/terraform-google-network.git//examples/basic_auto_mode?ref=v11.1.1"
+  project_id = "woven-precept-353210"
 }
