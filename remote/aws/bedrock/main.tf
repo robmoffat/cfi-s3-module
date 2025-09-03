@@ -1,6 +1,3 @@
 module "bedrock" {
-  source  = "aws-ia/bedrock/aws"
-  version = "0.0.20"
-  foundation_model = "anthropic.claude-v2"
-  instruction = "You are an automotive assisant who can provide detailed information about cars to a customer."
+  source  = "git::https://github.com/aws-ia/terraform-aws-bedrock/.git//examples/agent-with-guardrails?ref=0.0.29"
 }
