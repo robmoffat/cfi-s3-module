@@ -1,0 +1,1 @@
+aws s3api list-buckets --query 'Buckets[].Name' | sed 's/[",]//g' | awk '{print "aws s3 rb s3://" $1}' | sh
