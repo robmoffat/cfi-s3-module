@@ -1,4 +1,4 @@
 module "sql_database" {
-  source  = "terraform-google-modules/sql-db/google"
-  version = "~> 26.2.0"
+  source  = "git::https://github.com/terraform-google-modules/terraform-google-sql-db.git//examples/postgresql-psc?ref=v26.2.1"
+  project_id = "woven-precept-353210"
 }
