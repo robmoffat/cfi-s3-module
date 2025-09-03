@@ -163,7 +163,7 @@ jobs:
                 export TF_VAR_project_id="${{ secrets.GCP_PROJECT_ID }}"
 
                 terraform init
-                terraform apply -auto-approve  -var "project_id=${{ secrets.GCP_PROJECT_ID }}" -input=false
+                terraform apply -auto-approve  -input=false
                 
                 echo "🔍 Running Prowler scan for $TARGET_ID..."
                 cd "$GITHUB_WORKSPACE/prowler"
