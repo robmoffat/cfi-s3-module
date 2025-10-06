@@ -83,7 +83,7 @@ jobs:
           token_format: "id_token"
           id_token_audience: "https://iam.googleapis.com/projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/finos-oidc-pool/providers/github-provider"
           workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/finos-oidc-pool/providers/github-provider"
-          service_account: "github-actions-service-account@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+          service_account: "gha-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
