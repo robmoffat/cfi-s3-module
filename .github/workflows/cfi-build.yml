@@ -68,9 +68,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/TerraformRole
           aws-region: ${{ env.AWS_REGION }}
-      
-      - run: aws sts get-caller-identity
-      
+            
       - name: Configure Azure Credentials (OIDC)
         if: matrix.target.provider == 'azure'
         uses: azure/login@v1
