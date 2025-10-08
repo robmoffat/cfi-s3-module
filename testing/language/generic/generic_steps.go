@@ -183,6 +183,17 @@ func (pw *PropsWorld) HandleResolve(name string) interface{} {
 			return name
 		}
 	}
+
+	// Check if it's a direct variable name (not wrapped in {})
+	if val, exists := pw.Props[name]; exists {
+		return val
+	}
+
+	// Try JSONPath query for direct names
+	if result, err := jsonpath.JsonPathLookup(pw.Props, "$."+name); err == nil {
+		return result
+	}
+
 	return name
 }
 
@@ -217,15 +228,20 @@ func (pw *PropsWorld) callFunction(fn interface{}, args ...interface{}) {
 }
 
 // doesRowMatch checks if a data row matches the expected values
-func (pw *PropsWorld) doesRowMatch(expected map[string]string, actual interface{}) bool {
+func (pw *PropsWorld) doesRowMatch(expected map[string]string, actual interface{}) (bool, string) {
 	actualBytes, _ := json.Marshal(actual)
 	var actualMap map[string]interface{}
 	json.Unmarshal(actualBytes, &actualMap)
+
+	var debugInfo []string
+	debugInfo = append(debugInfo, fmt.Sprintf("Actual object: %s", string(actualBytes)))
+	debugInfo = append(debugInfo, "Field comparisons:")
 
 	for field, expectedVal := range expected {
 		if strings.HasSuffix(field, "matches_type") {
 			// Schema validation mode - would need schema validation library
 			// For now, skip this validation
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: SKIPPED (schema validation)", field))
 			continue
 		}
 
@@ -233,15 +249,19 @@ func (pw *PropsWorld) doesRowMatch(expected map[string]string, actual interface{
 		var foundVal interface{}
 		if result, err := jsonpath.JsonPathLookup(actualMap, "$."+field); err == nil {
 			foundVal = result
+		} else {
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: NOT FOUND (JSONPath error: %v)", field, err))
 		}
 
 		resolvedExpected := pw.HandleResolve(expectedVal)
 
 		// Handle boolean comparisons
 		if foundVal == true && resolvedExpected == "true" {
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: MATCH (true == 'true')", field))
 			continue
 		}
 		if foundVal == false && resolvedExpected == "false" {
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: MATCH (false == 'false')", field))
 			continue
 		}
 
@@ -250,11 +270,15 @@ func (pw *PropsWorld) doesRowMatch(expected map[string]string, actual interface{
 		expectedStr := fmt.Sprintf("%v", resolvedExpected)
 
 		if foundStr != expectedStr {
-			return false
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: MISMATCH - found: '%s' (type: %T), expected: '%s' (type: %T)",
+				field, foundStr, foundVal, expectedStr, resolvedExpected))
+			return false, strings.Join(debugInfo, "\n")
+		} else {
+			debugInfo = append(debugInfo, fmt.Sprintf("  %s: MATCH - '%s'", field, foundStr))
 		}
 	}
 
-	return true
+	return true, strings.Join(debugInfo, "\n")
 }
 
 // matchData validates array data against expected table
@@ -264,8 +288,9 @@ func (pw *PropsWorld) matchData(actual []interface{}, expected []map[string]stri
 	}
 
 	for i, expectedRow := range expected {
-		if !pw.doesRowMatch(expectedRow, actual[i]) {
-			return fmt.Errorf("row %d does not match expected values", i)
+		matches, debugInfo := pw.doesRowMatch(expectedRow, actual[i])
+		if !matches {
+			return fmt.Errorf("row %d does not match expected values:\n%s", i, debugInfo)
 		}
 	}
 
@@ -405,6 +430,12 @@ func (pw *PropsWorld) thePromiseShouldResolveWithinTimeout(field, timeoutStr str
 	return nil
 }
 
+func (pw *PropsWorld) iCallFunction(fnName string) error {
+	fn := pw.HandleResolve(fnName)
+	pw.callFunction(fn)
+	return nil
+}
+
 func (pw *PropsWorld) iCallObjectWithMethod(field, fnName string) error {
 	obj := pw.HandleResolve(field)
 
@@ -522,7 +553,7 @@ func (pw *PropsWorld) iCallFunctionWithThreeParameters(fnName, param1, param2, p
 	return nil
 }
 
-func (pw *PropsWorld) iReferToAs(from, to string) error {
+func (pw *PropsWorld) IReferToAs(from, to string) error {
 	pw.Props[to] = pw.HandleResolve(from)
 	return nil
 }
@@ -616,8 +647,9 @@ func (pw *PropsWorld) fieldIsObjectWithContents(field string, table *godog.Table
 		expected[cell.Value] = table.Rows[1].Cells[i].Value
 	}
 
-	if !pw.doesRowMatch(expected, actual) {
-		return fmt.Errorf("object does not match expected values")
+	matches, debugInfo := pw.doesRowMatch(expected, actual)
+	if !matches {
+		return fmt.Errorf("object does not match expected values:\n%s", debugInfo)
 	}
 
 	return nil
@@ -656,11 +688,15 @@ func (pw *PropsWorld) fieldIsFalse(field string) error {
 }
 
 func (pw *PropsWorld) fieldIsUndefined(field string) error {
-	_, exists := pw.Props[field]
-	if exists {
-		return fmt.Errorf("expected %s to be undefined", field)
+	resolved := pw.HandleResolve(field)
+	// If HandleResolve returns the original field name, it means the field doesn't exist
+	if resolved == field {
+		// Check if it exists in Props directly
+		if _, exists := pw.Props[field]; !exists {
+			return nil // Field is undefined, which is what we expect
+		}
 	}
-	return nil
+	return fmt.Errorf("expected %s to be undefined", field)
 }
 
 func (pw *PropsWorld) fieldIsEmpty(field string) error {
@@ -901,6 +937,9 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^the function "([^"]*)" should resolve$`, pw.ThePromiseShouldResolve)
 	s.Step(`^the function "([^"]*)" should resolve within "([^"]*)" seconds$`, pw.thePromiseShouldResolveWithinTimeout)
 
+	// Function call patterns - direct functions
+	s.Step(`^I call "([^"]*)"$`, pw.iCallFunction)
+
 	// Function call patterns - object methods
 	s.Step(`^I call "([^"]*)" with "([^"]*)"$`, pw.iCallObjectWithMethod)
 	s.Step(`^I call "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.ICallObjectWithMethodWithParameter)
@@ -913,7 +952,7 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^I call "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iCallFunctionWithThreeParameters)
 
 	// Variable management
-	s.Step(`^I refer to "([^"]*)" as "([^"]*)"$`, pw.iReferToAs)
+	s.Step(`^I refer to "([^"]*)" as "([^"]*)"$`, pw.IReferToAs)
 
 	// Data validation patterns
 	s.Step(`^"([^"]*)" is an slice of objects with the following contents$`, pw.fieldIsSliceOfObjectsWithContents)
@@ -926,6 +965,7 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^"([^"]*)" is not nil$`, pw.fieldIsNotNil)
 	s.Step(`^"([^"]*)" is true$`, pw.fieldIsTrue)
 	s.Step(`^"([^"]*)" is false$`, pw.fieldIsFalse)
+	s.Step(`^"([^"]*)" is undefined$`, pw.fieldIsUndefined)
 	s.Step(`^"([^"]*)" is empty$`, pw.fieldIsEmpty)
 	s.Step(`^"([^"]*)" is "([^"]*)"$`, pw.fieldEquals)
 	s.Step(`^"([^"]*)" is an error with message "([^"]*)"$`, pw.fieldIsErrorWithMessage)

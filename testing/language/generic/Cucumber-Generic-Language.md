@@ -70,6 +70,7 @@ When I call "{struct}" with "methodName" with parameters "{param1}" and "string 
 #### Direct Function Calls
 
 ```gherkin
+When I call "{function}"
 When I call "{function}" with parameter "{param1}"
 When I call "{function}" with parameters "{param1}" and "{param2}"
 When I call "{function}" with parameters "{param1}", "{param2}" and "{param3}"

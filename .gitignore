@@ -75,3 +75,6 @@ dist/
 
 # Development temp folder
 tmp
+
+
+cucumber-report.html
