@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -83,6 +84,22 @@ func (suite *TestSuite) iMakeAGETRequestTo(endpoint string) error {
 	return nil
 }
 
+// generateHTMLReport runs our custom HTML reporter
+func generateHTMLReport(t *testing.T) {
+	t.Log("Generating HTML report...")
+
+	// Run the HTML reporter
+	cmd := exec.Command("go", "run", "../../html-reporter/reporter.go", "report.json", "cucumber-report.html")
+	cmd.Dir = "."
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("Warning: Failed to generate HTML report: %v\nOutput: %s", err, output)
+	} else {
+		t.Log("HTML report generated: cucumber-report.html")
+	}
+}
+
 // Global function for godog CLI (required by godog)
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	suite := NewTestSuite()
@@ -113,6 +130,9 @@ func TestGodogFeatures(t *testing.T) {
 		ScenarioInitializer: suite.InitializeScenario,
 		Options:             &opts,
 	}.Run()
+
+	// Generate HTML report after tests complete
+	generateHTMLReport(t)
 
 	if status == 2 {
 		t.SkipNow()

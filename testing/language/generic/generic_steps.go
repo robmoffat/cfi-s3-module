@@ -157,7 +157,7 @@ func (pw *PropsWorld) HandleResolve(name string) interface{} {
 		stripped := name[1 : len(name)-1]
 
 		switch stripped {
-		case "null":
+		case "nil":
 			return nil
 		case "true":
 			return true
@@ -554,7 +554,8 @@ func (pw *PropsWorld) iCallFunctionWithThreeParameters(fnName, param1, param2, p
 }
 
 func (pw *PropsWorld) IReferToAs(from, to string) error {
-	pw.Props[to] = pw.HandleResolve(from)
+	resolved := pw.HandleResolve(from)
+	pw.Props[to] = resolved
 	return nil
 }
 
