@@ -25,13 +25,30 @@ func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 
 // Example-specific step definitions
 func (es *ExampleSteps) iHaveAnAPIClientConfiguredIn(variableName string) error {
-	// This step assumes the API client is already set up in the test suite setup
-	// The variableName parameter allows for flexibility in naming
+	// Create and configure the API client in the specified variable
+	apiClient := &APIClient{baseURL: "https://api.example.com"}
+	es.Props[variableName] = apiClient
 	return nil
 }
 
 func (es *ExampleSteps) iHaveTestDataIn(variableName string) error {
-	// This step assumes the test data is already set up in the test suite setup
-	// The variableName parameter allows for flexibility in naming
+	// Set up test data in the specified variable
+	testData := []interface{}{
+		map[string]interface{}{
+			"name":   "John Doe",
+			"active": true,
+			"profile": map[string]interface{}{
+				"email": "john@example.com",
+			},
+		},
+		map[string]interface{}{
+			"name":   "Jane Doe",
+			"active": false,
+			"profile": map[string]interface{}{
+				"email": "jane@example.com",
+			},
+		},
+	}
+	es.Props[variableName] = testData
 	return nil
 }

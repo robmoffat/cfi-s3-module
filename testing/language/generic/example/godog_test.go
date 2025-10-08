@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -93,8 +94,16 @@ func TestGodogFeatures(t *testing.T) {
 	suite := NewTestSuite()
 	suite.T = &TestingAdapter{T: t}
 
+	// Create output file for JSON report (for HTML generation)
+	jsonFile, err := os.Create("report.json")
+	if err != nil {
+		t.Fatalf("Failed to create report.json: %v", err)
+	}
+	defer jsonFile.Close()
+
 	opts := godog.Options{
-		Format:   "pretty",
+		Format:   "cucumber",
+		Output:   jsonFile,
 		Paths:    []string{"example.feature"},
 		TestingT: t,
 	}
