@@ -70,3 +70,29 @@ Feature: Example usage of generic steps in Go
     And "{result}" is an object with the following contents
       | status | message |
       |    200 | success |
+
+  @example
+  Scenario: Array length validation
+    Then "{users}" is an slice of objects with length "2"
+
+  @example
+  Scenario: String array validation
+    Given "colorArray" is a string array with colors
+    Then "{colorArray}" is an slice of strings with the following values
+      | value |
+      | red   |
+      | blue  |
+      | green |
+
+  @example
+  Scenario: Empty checks
+    Given "emptyArray" is an empty array
+    And "emptyString" is an empty string
+    Then "{emptyArray}" is empty
+    And "{emptyString}" is empty
+
+  @example
+  Scenario: Error type check
+    Given "genericError" is a function which throws an error
+    When I call "{genericError}"
+    Then "{result}" is an error

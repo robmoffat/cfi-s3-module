@@ -24,6 +24,9 @@ func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have an API client configured in "([^"]*)"$`, es.iHaveAnAPIClientConfiguredIn)
 	ctx.Step(`^I have test data in "([^"]*)"$`, es.iHaveTestDataIn)
 	ctx.Step(`^"([^"]*)" is a function which throws an error$`, es.functionThrowsError)
+	ctx.Step(`^"([^"]*)" is a string array with colors$`, es.stringArrayWithColors)
+	ctx.Step(`^"([^"]*)" is an empty array$`, es.emptyArray)
+	ctx.Step(`^"([^"]*)" is an empty string$`, es.emptyString)
 }
 
 // Example-specific step definitions
@@ -62,5 +65,23 @@ func (es *ExampleSteps) functionThrowsError(functionName string) error {
 		return fmt.Errorf("something went wrong")
 	}
 	es.Props[functionName] = errorFunc
+	return nil
+}
+
+func (es *ExampleSteps) stringArrayWithColors(variableName string) error {
+	// Create a string array with color values
+	es.Props[variableName] = []interface{}{"red", "blue", "green"}
+	return nil
+}
+
+func (es *ExampleSteps) emptyArray(variableName string) error {
+	// Create an empty array
+	es.Props[variableName] = []interface{}{}
+	return nil
+}
+
+func (es *ExampleSteps) emptyString(variableName string) error {
+	// Create an empty string
+	es.Props[variableName] = ""
 	return nil
 }

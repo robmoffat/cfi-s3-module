@@ -27,30 +27,7 @@ All test data is stored in a `PropsWorld` struct that maintains state across ste
 
 ## Step Definition Patterns
 
-### 1. Goroutine and Channel Patterns
-
-#### Basic Goroutine Resolution
-
-```gherkin
-Then the function "{functionField}" should resolve
-```
-
-- Executes Go functions (including those that return channels or use goroutines)
-- Supports `func() interface{}` and `func(context.Context) (interface{}, error)` signatures
-- Stores the result in `result` field
-- Handles panics gracefully and converts them to errors
-
-#### Timeout-Controlled Goroutine Resolution
-
-```gherkin
-Then the function "{functionField}" should resolve within "{timeout}" seconds
-```
-
-- Same as basic resolution but with a 10-second timeout using `context.WithTimeout`
-- Uses `select` statements with timeout channels for non-blocking operations
-- Cancels long-running goroutines using `context.CancelFunc`
-
-### 2. Reflection-Based Function Call Patterns
+### 1. Reflection-Based Function Call Patterns
 
 #### Method Calls on Go Structs
 
@@ -80,6 +57,46 @@ When I call "{function}" with parameters "{param1}", "{param2}" and "{param3}"
 - Supports 1-3 parameters with interface{} conversion
 - Uses reflection to match parameter types dynamically
 - Results are stored in `result` field
+
+### 2. Asynchronous Operation Patterns
+
+#### Starting A Function in a Goroutine
+
+```gherkin
+When I start task "name" by calling "{function}"
+When I start task "name" by calling "{function}" with parameter "{param1}"
+When I start task "name" by calling "{function}" with parameters "{param1}" and "{param2}"
+When I start task "name" by calling "{function}" with parameters "{param1}", "{param2}" and "{param3}"
+```
+
+- Creates a goroutine, storing it in the props array under the value 'name'
+- Supports 1-3 parameters with interface{} conversion
+- Uses reflection to match parameter types dynamically
+
+#### Starting A Method Call in a Goroutine
+
+```gherkin
+When I start task "name" by calling "{struct}" with "methodName"
+When I start task "name" by calling "{struct}" with "methodName" with parameter "{variable}"
+When I start task "name" by calling "{struct}" with "methodName" with parameters "{param1}" and "{param2}"
+When I start task "name" by calling "{struct}" with "methodName" with parameters "{param1}" and "string value" and "{param3}"
+```
+
+- Creates a goroutine, storing it in a struct in the props array under the value 'name'
+- Supports 1-3 parameters with interface{} conversion
+- Uses reflection to match parameter types dynamically
+
+#### Waiting for Completion
+
+```gherkin
+Then I wait for task "blah" to complete
+Then I wait for task "blah" to complete within "time" ms
+```
+
+- A blocking wait on continuing the test.
+- Uses `select` statements with timeout channels for non-blocking operations
+- Cancels long-running goroutines using `context.CancelFunc`
+- Puts the channel's output into `result`.
 
 ### 3. Go Variable Management Patterns
 
@@ -327,24 +344,3 @@ Then "{users}" is an slice of objects with the following contents
 | John Doe | true   | john@example.com     |
 | Jane Doe | false  | jane@example.com     |
 ```
-
-### Channel and Goroutine Coordination
-
-```gherkin
-When I start async task "{producer}"
-And I start async task "{consumer}"
-Then I wait for async task "{producer}" to complete within "{5}" seconds
-And I wait for async task "{consumer}" to complete within "{5}" seconds
-Then "{result}" is not nil
-```
-
-## Best Practices for Go Testing
-
-1. **Use Context for Cancellation**: Always use `context.Context` for long-running operations
-2. **Handle Goroutine Leaks**: Ensure all goroutines are properly cleaned up
-3. **Type Safety**: Leverage Go's type system with proper type assertions
-4. **Error Handling**: Use Go's explicit error handling patterns
-5. **Concurrency Safety**: Use mutexes and atomic operations for shared state
-6. **Resource Cleanup**: Use `defer` statements for proper resource management
-
-This framework provides a powerful foundation for writing comprehensive, readable, and maintainable Cucumber tests that leverage Go's concurrency features and type system.
