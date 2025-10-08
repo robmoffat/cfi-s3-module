@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/cucumber/godog"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/generic"
 )
@@ -21,6 +23,7 @@ func NewExampleSteps(world *generic.PropsWorld) *ExampleSteps {
 func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I have an API client configured in "([^"]*)"$`, es.iHaveAnAPIClientConfiguredIn)
 	ctx.Step(`^I have test data in "([^"]*)"$`, es.iHaveTestDataIn)
+	ctx.Step(`^"([^"]*)" is a function which throws an error$`, es.functionThrowsError)
 }
 
 // Example-specific step definitions
@@ -50,5 +53,14 @@ func (es *ExampleSteps) iHaveTestDataIn(variableName string) error {
 		},
 	}
 	es.Props[variableName] = testData
+	return nil
+}
+
+func (es *ExampleSteps) functionThrowsError(functionName string) error {
+	// Create a function that returns an error when called
+	errorFunc := func() interface{} {
+		return fmt.Errorf("something went wrong")
+	}
+	es.Props[functionName] = errorFunc
 	return nil
 }

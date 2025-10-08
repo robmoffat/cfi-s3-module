@@ -9,7 +9,7 @@ Feature: Example usage of generic steps in Go
 
   @example
   Scenario: Basic API testing with generic steps
-    When I call "apiClient" with "Get" with parameter "/users"
+    When I call "{apiClient}" with "Get" with parameter "/users"
     Then "{result}" is an object with the following contents
       | status | message |
       |    200 | success |
@@ -17,17 +17,17 @@ Feature: Example usage of generic steps in Go
   @example
   Scenario: Variable assignment and function calls
     Given "testValue" is a function which returns a value of "hello world"
-    When I refer to "testValue" as "myFunction"
-    And I call "myFunction"
+    When I refer to "{testValue}" as "myFunction"
+    And I call "{myFunction}"
     Then the function "result" should resolve
     And "{result}" is "hello world"
 
   @example
   Scenario: Counter functionality
     Given "clickHandler" is a invocation counter into "clickCount"
-    When I call "clickHandler"
-    And I call "clickHandler"
-    And I call "clickHandler"
+    When I call "{clickHandler}"
+    And I call "{clickHandler}"
+    And I call "{clickHandler}"
     Then "{clickCount}" is "3"
 
   @example
@@ -54,9 +54,9 @@ Feature: Example usage of generic steps in Go
 
   @example
   Scenario: Error handling
-    Given "errorFunction" is a function which returns a value of "error: something went wrong"
-    When I call "errorFunction"
-    Then "{result}" is an error with message "error: something went wrong"
+    Given "errorFunction" is a function which throws an error
+    When I call "{errorFunction}"
+    Then "{result}" is an error with message "something went wrong"
 
   @example
   Scenario: Timing operations
@@ -65,7 +65,7 @@ Feature: Example usage of generic steps in Go
 
   @example
   Scenario: Object method calls
-    When I call "apiClient" with "Get" with parameter "/status"
+    When I call "{apiClient}" with "Get" with parameter "/status"
     Then "{result}" is not nil
     And "{result}" is an object with the following contents
       | status | message |

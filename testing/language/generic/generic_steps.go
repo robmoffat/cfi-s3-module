@@ -180,18 +180,8 @@ func (pw *PropsWorld) HandleResolve(name string) interface{} {
 			}
 
 			// Return original if nothing matches
-			return name
+			return nil
 		}
-	}
-
-	// Check if it's a direct variable name (not wrapped in {})
-	if val, exists := pw.Props[name]; exists {
-		return val
-	}
-
-	// Try JSONPath query for direct names
-	if result, err := jsonpath.JsonPathLookup(pw.Props, "$."+name); err == nil {
-		return result
 	}
 
 	return name
