@@ -904,12 +904,22 @@ func (pw *PropsWorld) schemasLoaded() error {
 // iStartTaskByCallingFunction starts a task by calling a function with 0 parameters
 func (pw *PropsWorld) iStartTaskByCallingFunction(taskName, functionName string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		// Call the function synchronously within the goroutine
-		err := pw.iCallFunction(functionName)
-		if err != nil {
+		// Call the function directly without writing to shared result
+		funcValue := pw.HandleResolve(functionName)
+		if funcValue == nil {
+			return nil, fmt.Errorf("function %s not found", functionName)
+		}
+
+		fn, ok := funcValue.(func() interface{})
+		if !ok {
+			return nil, fmt.Errorf("%s is not a callable function", functionName)
+		}
+
+		result := fn()
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -917,11 +927,23 @@ func (pw *PropsWorld) iStartTaskByCallingFunction(taskName, functionName string)
 // iStartTaskByCallingFunctionWithParameter starts a task by calling a function with 1 parameter
 func (pw *PropsWorld) iStartTaskByCallingFunctionWithParameter(taskName, functionName, param1 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallFunctionWithParameter(functionName, param1)
-		if err != nil {
+		// Call the function directly without writing to shared result
+		funcValue := pw.HandleResolve(functionName)
+		if funcValue == nil {
+			return nil, fmt.Errorf("function %s not found", functionName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		fn, ok := funcValue.(func(string) interface{})
+		if !ok {
+			return nil, fmt.Errorf("%s is not a callable function with 1 parameter", functionName)
+		}
+
+		result := fn(fmt.Sprintf("%v", resolvedParam1))
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -929,11 +951,24 @@ func (pw *PropsWorld) iStartTaskByCallingFunctionWithParameter(taskName, functio
 // iStartTaskByCallingFunctionWithTwoParameters starts a task by calling a function with 2 parameters
 func (pw *PropsWorld) iStartTaskByCallingFunctionWithTwoParameters(taskName, functionName, param1, param2 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallFunctionWithTwoParameters(functionName, param1, param2)
-		if err != nil {
+		// Call the function directly without writing to shared result
+		funcValue := pw.HandleResolve(functionName)
+		if funcValue == nil {
+			return nil, fmt.Errorf("function %s not found", functionName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		resolvedParam2 := pw.HandleResolve(param2)
+		fn, ok := funcValue.(func(string, string) interface{})
+		if !ok {
+			return nil, fmt.Errorf("%s is not a callable function with 2 parameters", functionName)
+		}
+
+		result := fn(fmt.Sprintf("%v", resolvedParam1), fmt.Sprintf("%v", resolvedParam2))
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -941,11 +976,25 @@ func (pw *PropsWorld) iStartTaskByCallingFunctionWithTwoParameters(taskName, fun
 // iStartTaskByCallingFunctionWithThreeParameters starts a task by calling a function with 3 parameters
 func (pw *PropsWorld) iStartTaskByCallingFunctionWithThreeParameters(taskName, functionName, param1, param2, param3 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallFunctionWithThreeParameters(functionName, param1, param2, param3)
-		if err != nil {
+		// Call the function directly without writing to shared result
+		funcValue := pw.HandleResolve(functionName)
+		if funcValue == nil {
+			return nil, fmt.Errorf("function %s not found", functionName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		resolvedParam2 := pw.HandleResolve(param2)
+		resolvedParam3 := pw.HandleResolve(param3)
+		fn, ok := funcValue.(func(string, string, string) interface{})
+		if !ok {
+			return nil, fmt.Errorf("%s is not a callable function with 3 parameters", functionName)
+		}
+
+		result := fn(fmt.Sprintf("%v", resolvedParam1), fmt.Sprintf("%v", resolvedParam2), fmt.Sprintf("%v", resolvedParam3))
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -953,11 +1002,28 @@ func (pw *PropsWorld) iStartTaskByCallingFunctionWithThreeParameters(taskName, f
 // iStartTaskByCallingObjectWithMethod starts a task by calling an object method with 0 parameters
 func (pw *PropsWorld) iStartTaskByCallingObjectWithMethod(taskName, objectName, methodName string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallObjectWithMethod(objectName, methodName)
-		if err != nil {
+		// Call the method directly without writing to shared result
+		obj := pw.HandleResolve(objectName)
+		if obj == nil {
+			return nil, fmt.Errorf("object %s not found", objectName)
+		}
+
+		val := reflect.ValueOf(obj)
+		method := val.MethodByName(methodName)
+		if !method.IsValid() {
+			return nil, fmt.Errorf("method %s not found on object %s", methodName, objectName)
+		}
+
+		results := method.Call([]reflect.Value{})
+		if len(results) == 0 {
+			return nil, nil
+		}
+
+		result := results[0].Interface()
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -965,11 +1031,29 @@ func (pw *PropsWorld) iStartTaskByCallingObjectWithMethod(taskName, objectName, 
 // iStartTaskByCallingObjectWithMethodWithParameter starts a task by calling an object method with 1 parameter
 func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithParameter(taskName, objectName, methodName, param1 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.ICallObjectWithMethodWithParameter(objectName, methodName, param1)
-		if err != nil {
+		// Call the method directly without writing to shared result
+		obj := pw.HandleResolve(objectName)
+		if obj == nil {
+			return nil, fmt.Errorf("object %s not found", objectName)
+		}
+
+		val := reflect.ValueOf(obj)
+		method := val.MethodByName(methodName)
+		if !method.IsValid() {
+			return nil, fmt.Errorf("method %s not found on object %s", methodName, objectName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		results := method.Call([]reflect.Value{reflect.ValueOf(resolvedParam1)})
+		if len(results) == 0 {
+			return nil, nil
+		}
+
+		result := results[0].Interface()
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -977,11 +1061,30 @@ func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithParameter(taskName,
 // iStartTaskByCallingObjectWithMethodWithTwoParameters starts a task by calling an object method with 2 parameters
 func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithTwoParameters(taskName, objectName, methodName, param1, param2 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallObjectWithMethodWithTwoParameters(objectName, methodName, param1, param2)
-		if err != nil {
+		// Call the method directly without writing to shared result
+		obj := pw.HandleResolve(objectName)
+		if obj == nil {
+			return nil, fmt.Errorf("object %s not found", objectName)
+		}
+
+		val := reflect.ValueOf(obj)
+		method := val.MethodByName(methodName)
+		if !method.IsValid() {
+			return nil, fmt.Errorf("method %s not found on object %s", methodName, objectName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		resolvedParam2 := pw.HandleResolve(param2)
+		results := method.Call([]reflect.Value{reflect.ValueOf(resolvedParam1), reflect.ValueOf(resolvedParam2)})
+		if len(results) == 0 {
+			return nil, nil
+		}
+
+		result := results[0].Interface()
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -989,11 +1092,31 @@ func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithTwoParameters(taskN
 // iStartTaskByCallingObjectWithMethodWithThreeParameters starts a task by calling an object method with 3 parameters
 func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithThreeParameters(taskName, objectName, methodName, param1, param2, param3 string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		err := pw.iCallObjectWithMethodWithThreeParameters(objectName, methodName, param1, param2, param3)
-		if err != nil {
+		// Call the method directly without writing to shared result
+		obj := pw.HandleResolve(objectName)
+		if obj == nil {
+			return nil, fmt.Errorf("object %s not found", objectName)
+		}
+
+		val := reflect.ValueOf(obj)
+		method := val.MethodByName(methodName)
+		if !method.IsValid() {
+			return nil, fmt.Errorf("method %s not found on object %s", methodName, objectName)
+		}
+
+		resolvedParam1 := pw.HandleResolve(param1)
+		resolvedParam2 := pw.HandleResolve(param2)
+		resolvedParam3 := pw.HandleResolve(param3)
+		results := method.Call([]reflect.Value{reflect.ValueOf(resolvedParam1), reflect.ValueOf(resolvedParam2), reflect.ValueOf(resolvedParam3)})
+		if len(results) == 0 {
+			return nil, nil
+		}
+
+		result := results[0].Interface()
+		if err, ok := result.(error); ok {
 			return nil, err
 		}
-		return pw.Props["result"], nil
+		return result, nil
 	})
 	return nil
 }
@@ -1120,81 +1243,6 @@ func (pw *PropsWorld) iWaitForTaskToCompleteWithinMs(taskName, timeoutMs string)
 	return nil
 }
 
-func (pw *PropsWorld) asyncTaskShouldBeRunning(taskName string) error {
-	if !pw.AsyncManager.IsTaskRunning(taskName) {
-		return fmt.Errorf("task %s is not running", taskName)
-	}
-	return nil
-}
-
-func (pw *PropsWorld) asyncTaskShouldBeCompleted(taskName string) error {
-	if pw.AsyncManager.IsTaskRunning(taskName) {
-		return fmt.Errorf("task %s is still running", taskName)
-	}
-
-	// Get the result to verify completion
-	result, err := pw.AsyncManager.GetTaskResult(taskName)
-	if err != nil {
-		return err
-	}
-
-	pw.Props["result"] = result
-	return nil
-}
-
-func (pw *PropsWorld) iCancelAsyncTask(taskName string) error {
-	return pw.AsyncManager.CancelTask(taskName)
-}
-
-func (pw *PropsWorld) allAsyncTasksShouldComplete() error {
-	// Wait for all tasks to complete (with a reasonable timeout)
-	timeout := 30 * time.Second
-	deadline := time.Now().Add(timeout)
-
-	for time.Now().Before(deadline) {
-		allCompleted := true
-		pw.AsyncManager.mutex.RLock()
-		for _, task := range pw.AsyncManager.tasks {
-			select {
-			case <-task.Done:
-				// Task is done
-			default:
-				allCompleted = false
-				break
-			}
-		}
-		pw.AsyncManager.mutex.RUnlock()
-
-		if allCompleted {
-			return nil
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	return fmt.Errorf("not all async tasks completed within %v", timeout)
-}
-
-func (pw *PropsWorld) asyncResultShouldBeAvailable(taskName string) error {
-	result, err := pw.AsyncManager.GetTaskResult(taskName)
-	if err != nil {
-		return err
-	}
-
-	pw.Props["result"] = result
-	return nil
-}
-
-func (pw *PropsWorld) asyncOperationShouldHaveFailed(taskName string) error {
-	result, err := pw.AsyncManager.GetTaskResult(taskName)
-	if err == nil {
-		return fmt.Errorf("expected task %s to fail, but it succeeded with result: %v", taskName, result)
-	}
-
-	pw.Props["result"] = err
-	return nil
-}
-
 // RegisterSteps registers all step definitions with the Godog suite
 func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	// Function resolution patterns
@@ -1266,12 +1314,4 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.iWaitForObjectWithMethodWithParameter)
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithTwoParameters)
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithThreeParameters)
-
-	// Async task patterns - task management
-	s.Step(`^async task "([^"]*)" should be running$`, pw.asyncTaskShouldBeRunning)
-	s.Step(`^async task "([^"]*)" should be completed$`, pw.asyncTaskShouldBeCompleted)
-	s.Step(`^I cancel async task "([^"]*)"$`, pw.iCancelAsyncTask)
-	s.Step(`^all async tasks should complete$`, pw.allAsyncTasksShouldComplete)
-	s.Step(`^the async result "([^"]*)" should be available$`, pw.asyncResultShouldBeAvailable)
-	s.Step(`^the async operation "([^"]*)" should have failed$`, pw.asyncOperationShouldHaveFailed)
 }

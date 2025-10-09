@@ -99,7 +99,9 @@ Feature: Asynchronous operation patterns
     When I start task "concurrent1" by calling "{task1Fn}"
     And I start task "concurrent2" by calling "{task2Fn}"
     And I start task "concurrent3" by calling "{task3Fn}"
-    Then all async tasks should complete
-    And async task "concurrent1" should be completed
-    And async task "concurrent2" should be completed
-    And async task "concurrent3" should be completed
+    When I wait for task "concurrent1" to complete
+    Then "{result}" is "result1"
+    When I wait for task "concurrent2" to complete
+    Then "{result}" is "result2"
+    When I wait for task "concurrent3" to complete
+    Then "{result}" is "result3"
