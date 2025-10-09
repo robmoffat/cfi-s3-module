@@ -115,20 +115,6 @@ func (atm *AsyncTaskManager) IsTaskRunning(name string) bool {
 	}
 }
 
-// CancelTask cancels a running task
-func (atm *AsyncTaskManager) CancelTask(name string) error {
-	atm.mutex.RLock()
-	task, exists := atm.tasks[name]
-	atm.mutex.RUnlock()
-
-	if !exists {
-		return fmt.Errorf("task %s not found", name)
-	}
-
-	task.Cancel()
-	return nil
-}
-
 // PropsWorld represents the test context equivalent to TypeScript PropsWorld
 type PropsWorld struct {
 	Props        map[string]interface{}
@@ -310,137 +296,6 @@ func (pw *PropsWorld) matchData(actual []interface{}, expected []map[string]stri
 }
 
 // Step Definitions
-
-func (pw *PropsWorld) ThePromiseShouldResolve(field string) error {
-	promise := pw.HandleResolve(field)
-
-	// Handle different types of "promises"
-	switch p := promise.(type) {
-	case func() interface{}:
-		// Synchronous function
-		result := p()
-		pw.Props["result"] = result
-	case func(context.Context) (interface{}, error):
-		// Async function with context
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		result, err := p(ctx)
-		if err != nil {
-			pw.Props["result"] = err
-		} else {
-			pw.Props["result"] = result
-		}
-	case string:
-		// Check if it's an async task name
-		if pw.AsyncManager.IsTaskRunning(p) {
-			err := pw.AsyncManager.WaitForTask(p, 30*time.Second)
-			if err != nil {
-				pw.Props["result"] = err
-				return nil
-			}
-			result, err := pw.AsyncManager.GetTaskResult(p)
-			if err != nil {
-				pw.Props["result"] = err
-			} else {
-				pw.Props["result"] = result
-			}
-		} else {
-			// Check if the string refers to a function in Props
-			if fn, exists := pw.Props[p]; exists {
-				if callable, ok := fn.(func() interface{}); ok {
-					result := callable()
-					pw.Props["result"] = result
-				} else if callableCtx, ok := fn.(func(context.Context) (interface{}, error)); ok {
-					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-					defer cancel()
-					result, err := callableCtx(ctx)
-					if err != nil {
-						pw.Props["result"] = err
-					} else {
-						pw.Props["result"] = result
-					}
-				} else {
-					pw.Props["result"] = fn
-				}
-			} else {
-				pw.Props["result"] = promise
-			}
-		}
-	default:
-		pw.Props["result"] = promise
-	}
-
-	return nil
-}
-
-func (pw *PropsWorld) thePromiseShouldResolveWithinTimeout(field, timeoutStr string) error {
-	promise := pw.HandleResolve(field)
-	timeoutSeconds, err := strconv.Atoi(timeoutStr)
-	if err != nil {
-		return fmt.Errorf("invalid timeout: %s", timeoutStr)
-	}
-	timeout := time.Duration(timeoutSeconds) * time.Second
-
-	// Handle different types of "promises" with variable timeout
-	switch p := promise.(type) {
-	case func() interface{}:
-		// Async execution with timeout
-		resultChan := make(chan interface{}, 1)
-		go func() {
-			result := p()
-			resultChan <- result
-		}()
-
-		select {
-		case result := <-resultChan:
-			pw.Props["result"] = result
-		case <-time.After(timeout):
-			pw.Props["result"] = fmt.Errorf("timeout after %v", timeout)
-		}
-	case func(context.Context) (interface{}, error):
-		// Async function with context and timeout
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		result, err := p(ctx)
-		if err != nil {
-			pw.Props["result"] = err
-		} else {
-			pw.Props["result"] = result
-		}
-	case string:
-		// Check if it's an async task name
-		if pw.AsyncManager.IsTaskRunning(p) {
-			err := pw.AsyncManager.WaitForTask(p, timeout)
-			if err != nil {
-				pw.Props["result"] = err
-				return nil
-			}
-			result, err := pw.AsyncManager.GetTaskResult(p)
-			if err != nil {
-				pw.Props["result"] = err
-			} else {
-				pw.Props["result"] = result
-			}
-		} else {
-			pw.Props["result"] = promise
-		}
-	default:
-		// Create a timeout channel for any other type
-		resultChan := make(chan interface{}, 1)
-		go func() {
-			resultChan <- promise
-		}()
-
-		select {
-		case result := <-resultChan:
-			pw.Props["result"] = result
-		case <-time.After(timeout):
-			pw.Props["result"] = fmt.Errorf("timeout after %v", timeout)
-		}
-	}
-
-	return nil
-}
 
 func (pw *PropsWorld) iCallFunction(fnName string) error {
 	fn := pw.HandleResolve(fnName)
@@ -761,18 +616,6 @@ func (pw *PropsWorld) fieldIsFalse(field string) error {
 	return nil
 }
 
-func (pw *PropsWorld) fieldIsUndefined(field string) error {
-	resolved := pw.HandleResolve(field)
-	// If HandleResolve returns the original field name, it means the field doesn't exist
-	if resolved == field {
-		// Check if it exists in Props directly
-		if _, exists := pw.Props[field]; !exists {
-			return nil // Field is undefined, which is what we expect
-		}
-	}
-	return fmt.Errorf("expected %s to be undefined", field)
-}
-
 func (pw *PropsWorld) fieldIsEmpty(field string) error {
 	actual := pw.HandleResolve(field)
 
@@ -889,13 +732,6 @@ func (pw *PropsWorld) waitForPeriod(ms string) error {
 	}
 
 	time.Sleep(time.Duration(duration) * time.Millisecond)
-	return nil
-}
-
-func (pw *PropsWorld) schemasLoaded() error {
-	// This would need to be implemented based on your schema loading requirements
-	// For now, we'll create a placeholder
-	pw.Props["ajv"] = "schema_validator_placeholder"
 	return nil
 }
 
@@ -1245,9 +1081,6 @@ func (pw *PropsWorld) iWaitForTaskToCompleteWithinMs(taskName, timeoutMs string)
 
 // RegisterSteps registers all step definitions with the Godog suite
 func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
-	// Function resolution patterns
-	s.Step(`^the function "([^"]*)" should resolve$`, pw.ThePromiseShouldResolve)
-	s.Step(`^the function "([^"]*)" should resolve within "([^"]*)" seconds$`, pw.thePromiseShouldResolveWithinTimeout)
 
 	// Function call patterns - direct functions
 	s.Step(`^I call "([^"]*)"$`, pw.iCallFunction)
@@ -1277,7 +1110,6 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^"([^"]*)" is not nil$`, pw.fieldIsNotNil)
 	s.Step(`^"([^"]*)" is true$`, pw.fieldIsTrue)
 	s.Step(`^"([^"]*)" is false$`, pw.fieldIsFalse)
-	s.Step(`^"([^"]*)" is undefined$`, pw.fieldIsUndefined)
 	s.Step(`^"([^"]*)" is empty$`, pw.fieldIsEmpty)
 	s.Step(`^"([^"]*)" is "([^"]*)"$`, pw.fieldEquals)
 	s.Step(`^"([^"]*)" is an error with message "([^"]*)"$`, pw.fieldIsErrorWithMessage)
@@ -1287,7 +1119,6 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^"([^"]*)" is a invocation counter into "([^"]*)"$`, pw.HandlerIsInvocationCounter)
 	s.Step(`^"([^"]*)" is a function which returns a value of "([^"]*)"$`, pw.FunctionReturnsPromiseOf)
 	s.Step(`^we wait for a period of "([^"]*)" ms$`, pw.waitForPeriod)
-	s.Step(`^schemas loaded$`, pw.schemasLoaded)
 
 	// Async task patterns - starting tasks
 	s.Step(`^I start task "([^"]*)" by calling "([^"]*)"$`, pw.iStartTaskByCallingFunction)

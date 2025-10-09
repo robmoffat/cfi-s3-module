@@ -28,10 +28,12 @@ func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^"([^"]*)" is an empty array$`, es.emptyArray)
 	ctx.Step(`^"([^"]*)" is an empty string$`, es.emptyString)
 
-	// Async test helper functions
-	ctx.Step(`^"([^"]*)" is a function which adds 10 to a number$`, es.functionAdds10)
-	ctx.Step(`^"([^"]*)" is a function which multiplies two numbers$`, es.functionMultiplies)
-	ctx.Step(`^"([^"]*)" is a function which concatenates three strings$`, es.functionConcatenates)
+	// Test helper functions - one for each parameter count
+	ctx.Step(`^"([^"]*)" is a test function with no parameters$`, es.functionNoParams)
+	ctx.Step(`^"([^"]*)" is a test function with one parameter$`, es.functionOneParam)
+	ctx.Step(`^"([^"]*)" is a test function with two parameters$`, es.functionTwoParams)
+	ctx.Step(`^"([^"]*)" is a test function with three parameters$`, es.functionThreeParams)
+	ctx.Step(`^I have a test object in "([^"]*)"$`, es.iHaveTestObjectIn)
 }
 
 // Example-specific step definitions
@@ -91,35 +93,55 @@ func (es *ExampleSteps) emptyString(variableName string) error {
 	return nil
 }
 
-// Async helper functions
-func (es *ExampleSteps) functionAdds10(functionName string) error {
-	// Create a function that adds 10 to its parameter
-	addFunc := func(numStr string) interface{} {
-		num := 0
-		fmt.Sscanf(numStr, "%d", &num)
-		return fmt.Sprintf("%d", num+10)
+// Test helper functions - one for each parameter count
+func (es *ExampleSteps) functionNoParams(functionName string) error {
+	fn := func() interface{} {
+		return "no-params-result"
 	}
-	es.Props[functionName] = addFunc
+	es.Props[functionName] = fn
 	return nil
 }
 
-func (es *ExampleSteps) functionMultiplies(functionName string) error {
-	// Create a function that multiplies two numbers
-	multiplyFunc := func(a, b string) interface{} {
-		numA, numB := 0, 0
-		fmt.Sscanf(a, "%d", &numA)
-		fmt.Sscanf(b, "%d", &numB)
-		return fmt.Sprintf("%d", numA*numB)
+func (es *ExampleSteps) functionOneParam(functionName string) error {
+	fn := func(a string) interface{} {
+		return "one-param:" + a
 	}
-	es.Props[functionName] = multiplyFunc
+	es.Props[functionName] = fn
 	return nil
 }
 
-func (es *ExampleSteps) functionConcatenates(functionName string) error {
-	// Create a function that concatenates three strings
-	concatFunc := func(a, b, c string) interface{} {
-		return a + b + c
+func (es *ExampleSteps) functionTwoParams(functionName string) error {
+	fn := func(a, b string) interface{} {
+		return "two-params:" + a + "," + b
 	}
-	es.Props[functionName] = concatFunc
+	es.Props[functionName] = fn
+	return nil
+}
+
+func (es *ExampleSteps) functionThreeParams(functionName string) error {
+	fn := func(a, b, c string) interface{} {
+		return "three-params:" + a + "," + b + "," + c
+	}
+	es.Props[functionName] = fn
+	return nil
+}
+
+// TestObject is a simple object with methods for testing
+type TestObject struct{}
+
+func (to *TestObject) GetValue() interface{} {
+	return "test-value"
+}
+
+func (to *TestObject) CombineStrings(a, b interface{}) interface{} {
+	return fmt.Sprintf("%v-%v", a, b)
+}
+
+func (to *TestObject) JoinThree(a, b, c interface{}) interface{} {
+	return fmt.Sprintf("%v-%v-%v", a, b, c)
+}
+
+func (es *ExampleSteps) iHaveTestObjectIn(variableName string) error {
+	es.Props[variableName] = &TestObject{}
 	return nil
 }

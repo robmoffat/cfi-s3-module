@@ -15,24 +15,24 @@ Feature: Asynchronous operation patterns
 
   @async
   Scenario: Start task by calling function with parameter
-    Given "addTen" is a function which adds 10 to a number
-    When I start task "task2" by calling "{addTen}" with parameter "5"
+    Given "fn1" is a test function with one parameter
+    When I start task "task2" by calling "{fn1}" with parameter "async"
     Then I wait for task "task2" to complete
-    And "{result}" is "15"
+    And "{result}" is "one-param:async"
 
   @async
   Scenario: Start task by calling function with two parameters
-    Given "multiply" is a function which multiplies two numbers
-    When I start task "task3" by calling "{multiply}" with parameters "6" and "7"
+    Given "fn2" is a test function with two parameters
+    When I start task "task3" by calling "{fn2}" with parameters "p1" and "p2"
     Then I wait for task "task3" to complete
-    And "{result}" is "42"
+    And "{result}" is "two-params:p1,p2"
 
   @async
   Scenario: Start task by calling function with three parameters
-    Given "concat" is a function which concatenates three strings
-    When I start task "task4" by calling "{concat}" with parameters "Hello", " ", "World"
+    Given "fn3" is a test function with three parameters
+    When I start task "task4" by calling "{fn3}" with parameters "a", "b" and "c"
     Then I wait for task "task4" to complete
-    And "{result}" is "Hello World"
+    And "{result}" is "three-params:a,b,c"
 
   @async
   Scenario: Start task by calling object method
@@ -63,21 +63,21 @@ Feature: Asynchronous operation patterns
 
   @async
   Scenario: All-in-one wait for function with parameter
-    Given "addTen" is a function which adds 10 to a number
-    When I wait for "{addTen}" with parameter "20"
-    Then "{result}" is "30"
+    Given "fn1" is a test function with one parameter
+    When I wait for "{fn1}" with parameter "wait"
+    Then "{result}" is "one-param:wait"
 
   @async
   Scenario: All-in-one wait for function with two parameters
-    Given "multiply" is a function which multiplies two numbers
-    When I wait for "{multiply}" with parameters "8" and "9"
-    Then "{result}" is "72"
+    Given "fn2" is a test function with two parameters
+    When I wait for "{fn2}" with parameters "x" and "y"
+    Then "{result}" is "two-params:x,y"
 
   @async
   Scenario: All-in-one wait for function with three parameters
-    Given "concat" is a function which concatenates three strings
-    When I wait for "{concat}" with parameters "Go", "dog", "!"
-    Then "{result}" is "Godog!"
+    Given "fn3" is a test function with three parameters
+    When I wait for "{fn3}" with parameters "1", "2" and "3"
+    Then "{result}" is "three-params:1,2,3"
 
   @async
   Scenario: All-in-one wait for object method
@@ -90,6 +90,58 @@ Feature: Asynchronous operation patterns
     Then "{result}" is an object with the following contents
       | status | message |
       |    200 | success |
+
+  @async
+  Scenario: Start task with three parameter function
+    Given "fn3" is a test function with three parameters
+    When I start task "sumTask" by calling "{fn3}" with parameters "10", "20" and "30"
+    Then I wait for task "sumTask" to complete
+    And "{result}" is "three-params:10,20,30"
+
+  @async
+  Scenario: Start task with object method (no params)
+    Given I have a test object in "testObj"
+    When I start task "getValueTask" by calling "{testObj}" with "GetValue"
+    Then I wait for task "getValueTask" to complete
+    And "{result}" is "test-value"
+
+  @async
+  Scenario: Start task with object method (two params)
+    Given I have a test object in "testObj"
+    When I start task "combineTask" by calling "{testObj}" with "CombineStrings" with parameters "foo" and "bar"
+    Then I wait for task "combineTask" to complete
+    And "{result}" is "foo-bar"
+
+  @async
+  Scenario: Start task with object method (three params)
+    Given I have a test object in "testObj"
+    When I start task "joinTask" by calling "{testObj}" with "JoinThree" with parameters "x", "y" and "z"
+    Then I wait for task "joinTask" to complete
+    And "{result}" is "x-y-z"
+
+  @async
+  Scenario: All-in-one wait for function with three params
+    Given "fn3" is a test function with three parameters
+    When I wait for "{fn3}" with parameters "5", "15" and "25"
+    Then "{result}" is "three-params:5,15,25"
+
+  @async
+  Scenario: All-in-one wait for object method (no params)
+    Given I have a test object in "testObj"
+    When I wait for "{testObj}" with "GetValue"
+    Then "{result}" is "test-value"
+
+  @async
+  Scenario: All-in-one wait for object method (two params)
+    Given I have a test object in "testObj"
+    When I wait for "{testObj}" with "CombineStrings" with parameters "async" and "test"
+    Then "{result}" is "async-test"
+
+  @async
+  Scenario: All-in-one wait for object method (three params)
+    Given I have a test object in "testObj"
+    When I wait for "{testObj}" with "JoinThree" with parameters "1", "2" and "3"
+    Then "{result}" is "1-2-3"
 
   @async
   Scenario: Multiple concurrent tasks
