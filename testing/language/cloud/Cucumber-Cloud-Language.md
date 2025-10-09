@@ -7,6 +7,7 @@
 @http, @ssh        # Indicate that the test only applies to a specific port protocol (see below)
 @plaintext, @tls   # Applies to only plaintext/tls ports. e.g http is plaintext whereas https is tls.
 @PerService        # This test applies across the whole service
+@tlp-green @tlp-amber @tlp-red  # Traffic-light protocol level of the control.
 ```
 
 ## Pre-Configured Variables
@@ -29,6 +30,7 @@ Where a test is `@PerService`:
 
 ```gherkin
 Given an openssl s_client request to "{portNumber}" on "{hostName}" as "connection"
+Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" as "connection"
 Then I transmit "{httpRequest}" over "{connection}"
 # Where httpRequest could be:
 GET / HTTP/1.1
@@ -77,7 +79,7 @@ QUIT
 
 Will return the response in `result`.
 
-- Protocol argument: `tls1_1`, `tls1_2`, `tls1_3` etc.
+- TLS argument: `tls1_1`, `tls1_2`, `tls1_3` etc.
 
 | Protocol | Port | Start-TLS flag to use |
 | -------- | ---- | --------------------- |

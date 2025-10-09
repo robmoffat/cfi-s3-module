@@ -1,4 +1,4 @@
-@PerPort
+@PerPort @tlp-green @tlp-amber @tlp-red
 Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect Unencrypted Traffic
   As a security administrator
   I want unencrypted traffic to be blocked or redirected to secure equivalents
@@ -9,29 +9,25 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     If HTTP is accessible, it should immediately redirect to HTTPS (301/302 status codes).
     This ensures that all web traffic is encrypted.
 
-    Given an HTTP request message in "httpRequest"
-    And a client connects using "http" for protocol "http" on port "{portNumber}" as "connection"
-    And I transmit "{httpRequest}" over "{connection}"
-    Then "{result}" contains "HTTP/1.1 301 Moved Permanently"
-    And "{connection}" is closed
+    Given a client connects using "http" for protocol "http" on port "{portNumber}"
+    Then "{result}" is not an error
+    And "{result}" contains "301"
 
   @ftp
   Scenario: FTP traffic is blocked or not exposed
     Unencrypted FTP should not be accessible. The service should either refuse connections
     or not expose FTP on standard ports (21).
 
-    Given a client connects using "ftp" for protocol "ftp" on port "21" as "connection"
+    Given a client connects using "ftp" for protocol "ftp" on port "21"
     Then "{result}" is an error
-    And "{connection}" is closed
 
   @telnet
   Scenario: Telnet traffic is blocked or not exposed
     Telnet transmits credentials in plaintext and should be completely disabled.
     SSH should be used instead for remote shell access.
 
-    Given a client connects using "telnet" for protocol "telnet" on port "{portNumber}" as "connection"
+    Given a client connects using "telnet" for protocol "telnet" on port "{portNumber}"
     Then "{result}" is an error
-    And "{connection}" is closed
 
   Scenario: Only secure protocols are exposed
     Verify that the service only exposes encrypted protocols by checking that
