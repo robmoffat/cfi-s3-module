@@ -70,18 +70,6 @@ func (suite *TestSuite) InitializeScenario(ctx *godog.ScenarioContext) {
 
 	// Register example-specific steps
 	suite.ExampleSteps.RegisterExampleSteps(ctx)
-
-	// Register custom steps for examples
-	ctx.Step(`^I make a GET request to "([^"]*)"$`, suite.iMakeAGETRequestTo)
-}
-
-// Custom step definitions for examples
-
-func (suite *TestSuite) iMakeAGETRequestTo(endpoint string) error {
-	client := suite.Props["apiClient"].(*APIClient)
-	result := client.Get(endpoint)
-	suite.Props["response"] = result
-	return nil
 }
 
 // generateHTMLReport runs our custom HTML reporter
