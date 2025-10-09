@@ -77,9 +77,9 @@ When I start task "name" by calling "{function}" with parameters "{param1}", "{p
 
 ```gherkin
 When I start task "name" by calling "{struct}" with "methodName"
-When I start task "name" by calling "{struct}" with "methodName" with parameter "{variable}"
+When I start task "name" by calling "{struct}" with "methodName" with parameter "{param1}"
 When I start task "name" by calling "{struct}" with "methodName" with parameters "{param1}" and "{param2}"
-When I start task "name" by calling "{struct}" with "methodName" with parameters "{param1}" and "string value" and "{param3}"
+When I start task "name" by calling "{struct}" with "methodName" with parameters "{param1}", "{param2}" and "{param3}" and "{param3}"
 ```
 
 - Creates a goroutine, storing it in a struct in the props array under the value 'name'
@@ -97,6 +97,21 @@ Then I wait for task "blah" to complete within "time" ms
 - Uses `select` statements with timeout channels for non-blocking operations
 - Cancels long-running goroutines using `context.CancelFunc`
 - Puts the channel's output into `result`.
+
+#### All In One
+
+```gherkin
+When I wait for "{function}"
+When I wait for "{function}" with parameter "{param1}"
+When I wait for "{function}" with parameters "{param1}" and "{param2}"
+When I wait for "{function}" with parameters "{param1}", "{param2}" and "{param3}"
+When I wait for "{struct}" with "methodName"
+When I wait for "{struct}" with "methodName" with parameter "{variable}"
+When I wait for "{struct}" with "methodName" with parameters "{param1}" and "{param2}"
+When I wait for "{struct}" with "methodName" with parameters "{param1}" and "string value" and "{param3}"
+```
+
+This waits for a task to complete, so rolling two of the above steps together, effectively.
 
 ### 3. Go Variable Management Patterns
 
