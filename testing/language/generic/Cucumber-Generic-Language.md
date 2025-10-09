@@ -172,6 +172,13 @@ Then "{fieldName}" is an object with the following contents
 | value1    | value2    | value3    |
 ```
 
+```gherkin
+Then "{users}" is an slice of objects with the following contents
+| name     | active | profile.email        |
+| John Doe | true   | john@example.com     |
+| Jane Doe | false  | jane@example.com     |
+```
+
 - Validates that a `map[string]interface{}` has specific key-value pairs
 - Supports nested map access using JSONPath syntax
 - Handles Go's zero values appropriately
@@ -289,37 +296,7 @@ Then async task "{taskName}" should be completed
 - Monitors task states using channels and select statements
 - Handles task cancellation and cleanup
 
-## Advanced Go Features
-
-#### JSON Schema Validation Setup
-
-```gherkin
-Given schemas loaded from "file" into "variableName"
-```
-
-- Loads JSON schemas for data validation
-- Sets up schema validators compatible with Go's JSON marshaling
-- Configures validation for Go structs and maps
-
-#### JSON Schema Validation with Go Types
-
-The framework includes support for JSON Schema validation optimized for Go:
-
-- Automatically loads schemas and validates against Go struct tags
-- Uses Go's `encoding/json` package for marshaling/unmarshaling
-- Supports Go's type system including custom types and embedded structs
-- Schemas can be referenced in data validation steps using `matches_type(variableName)` suffix
-
-### JSONPath with Go Maps and Slices
-
-Complex object navigation is supported through JSONPath optimized for Go data structures:
-
-- Access nested map properties: `{user.profile.name}`
-- Slice indexing: `{users[0].name}`
-- Conditional selection: `{users[?(@.active)].name}`
-- Works with `map[string]interface{}` and `[]interface{}` types
-
-### Go Error Handling and Panic Recovery
+## 8. Go Error Handling and Panic Recovery
 
 All step definitions include comprehensive Go error handling:
 
@@ -327,35 +304,3 @@ All step definitions include comprehensive Go error handling:
 - Errors implement Go's `error` interface and are stored in the `result` field
 - Goroutine panics are handled gracefully with proper cleanup
 - Provides detailed stack traces for debugging
-
-## Go Usage Examples
-
-### HTTP Client Testing with Goroutines
-
-```gherkin
-Given "{httpClient}" is a function which returns a value of "{mockResponse}"
-When I call "{httpClient}" with parameter "{requestData}"
-Then the function "{result}" should resolve within "{10}" seconds
-And "{result}" is an object with the following contents
-| status | message |
-| 200    | success |
-```
-
-### Concurrent Counter Validation
-
-```gherkin
-Given "{eventHandler}" is a invocation counter into "eventCount"
-When I start async task "{task1}"
-When I start async task "{task2}"
-Then all async tasks should complete
-Then "{eventCount}" is "{2}"
-```
-
-### Go Struct and Map Validation
-
-```gherkin
-Then "{users}" is an slice of objects with the following contents
-| name     | active | profile.email        |
-| John Doe | true   | john@example.com     |
-| Jane Doe | false  | jane@example.com     |
-```
