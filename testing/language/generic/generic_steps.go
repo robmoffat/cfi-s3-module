@@ -97,24 +97,6 @@ func (atm *AsyncTaskManager) GetTaskResult(name string) (interface{}, error) {
 	}
 }
 
-// IsTaskRunning checks if a task is still running
-func (atm *AsyncTaskManager) IsTaskRunning(name string) bool {
-	atm.mutex.RLock()
-	defer atm.mutex.RUnlock()
-
-	task, exists := atm.tasks[name]
-	if !exists {
-		return false
-	}
-
-	select {
-	case <-task.Done:
-		return false
-	default:
-		return true
-	}
-}
-
 // PropsWorld represents the test context equivalent to TypeScript PropsWorld
 type PropsWorld struct {
 	Props        map[string]interface{}
@@ -1089,7 +1071,7 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^I call "([^"]*)" with "([^"]*)"$`, pw.iCallObjectWithMethod)
 	s.Step(`^I call "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.ICallObjectWithMethodWithParameter)
 	s.Step(`^I call "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iCallObjectWithMethodWithTwoParameters)
-	s.Step(`^I call "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)" and "([^"]*)"$`, pw.iCallObjectWithMethodWithThreeParameters)
+	s.Step(`^I call "([^"]*)" with "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iCallObjectWithMethodWithThreeParameters)
 
 	// Function call patterns - direct functions
 	s.Step(`^I call "([^"]*)" with parameter "([^"]*)"$`, pw.iCallFunctionWithParameter)
@@ -1144,5 +1126,5 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)"$`, pw.iWaitForObjectWithMethod)
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.iWaitForObjectWithMethodWithParameter)
 	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithTwoParameters)
-	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithThreeParameters)
+	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithThreeParameters)
 }
