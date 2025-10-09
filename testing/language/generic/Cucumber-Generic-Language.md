@@ -179,6 +179,19 @@ Then "{users}" is an slice of objects with the following contents
 | Jane Doe | false  | jane@example.com     |
 ```
 
+```gherkin
+Then "{users}" is a slice of objects with at least the following contents
+| name     | active | profile.email        |
+| John Doe | true   | john@example.com     |
+```
+
+```gherkin
+Then "{users}" is a slice of objects which doesn't contain any of
+| name     | active | profile.email        |
+| Intruder 1 | true   | int@example.com    |
+| Dodgy Guy | true | dodgy@example.com     |
+```
+
 - Validates that a `map[string]interface{}` has specific key-value pairs
 - Supports nested map access using JSONPath syntax
 - Handles Go's zero values appropriately
