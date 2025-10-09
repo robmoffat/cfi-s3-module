@@ -31,21 +31,22 @@ Feature: CCC.Core.C01.TR01 - Encrypt Data for Transmission - TLS 1.3 for Non-SSH
       | TLS1_1 | offered |
       | TLS1_2 | offered |
     And "{report}" is a slice of objects with at least the following contents
-      | id     | finding |
-      | TLS1_3 | offered |
+      | id     | finding            |
+      | TLS1_3 | offered with final |
 
   Scenario: Verify no known SSL/TLS vulnerabilities
     Given "report" contains details of SSL Support type "vulnerable" for "{hostName}" on port "{portNumber}"
     Then "{report}" is a slice of objects with at least the following contents
-      | id            | finding                        |
-      | heartbleed    | not vulnerable                 |
-      | CCS           | not vulnerable                 |
-      | ticketbleed   | not vulnerable                 |
-      | ROBOT         | not vulnerable                 |
-      | secure_renego | secure renegotiation supported |
+      | id            | finding                                |
+      | heartbleed    | not vulnerable, no heartbeat extension |
+      | CCS           | not vulnerable                         |
+      | ticketbleed   | not vulnerable                         |
+      | ROBOT         | not vulnerable                         |
+      | secure_renego | supported                              |
 
-  Scenario: Verify strong server defaults
+  Scenario: Verify TLS 1.3 only certificate validity
     Given "report" contains details of SSL Support type "server-defaults" for "{hostName}" on port "{portNumber}"
     Then "{report}" is a slice of objects with at least the following contents
-      | id                    | finding      |
-      | TLS_server_preference | cipher order |
+      | id                    | finding |
+      | cert_expirationStatus | ok      |
+      | cert_chain_of_trust   | passed. |
