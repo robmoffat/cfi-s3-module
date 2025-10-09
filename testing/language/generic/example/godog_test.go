@@ -121,7 +121,7 @@ func TestGodogFeatures(t *testing.T) {
 	opts := godog.Options{
 		Format:   "cucumber",
 		Output:   jsonFile,
-		Paths:    []string{"calling.feature", "async.feature", "comparison.feature", "others.feature"},
+		Paths:    []string{"features"},
 		TestingT: t,
 	}
 
