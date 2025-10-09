@@ -901,27 +901,187 @@ func (pw *PropsWorld) schemasLoaded() error {
 
 // Async-specific step definitions
 
-func (pw *PropsWorld) iStartAsyncTask(taskName string) error {
+// iStartTaskByCallingFunction starts a task by calling a function with 0 parameters
+func (pw *PropsWorld) iStartTaskByCallingFunction(taskName, functionName string) error {
 	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
-		// Default async task - can be overridden by setting a function in Props
-		if taskFn, exists := pw.Props[taskName+"_function"]; exists {
-			if fn, ok := taskFn.(func(context.Context) (interface{}, error)); ok {
-				return fn(ctx)
-			}
+		// Call the function synchronously within the goroutine
+		err := pw.iCallFunction(functionName)
+		if err != nil {
+			return nil, err
 		}
-
-		// Default behavior - simulate some work
-		select {
-		case <-time.After(1 * time.Second):
-			return fmt.Sprintf("Task %s completed", taskName), nil
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		return pw.Props["result"], nil
 	})
 	return nil
 }
 
-func (pw *PropsWorld) iWaitForAsyncTaskToComplete(taskName string) error {
+// iStartTaskByCallingFunctionWithParameter starts a task by calling a function with 1 parameter
+func (pw *PropsWorld) iStartTaskByCallingFunctionWithParameter(taskName, functionName, param1 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallFunctionWithParameter(functionName, param1)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingFunctionWithTwoParameters starts a task by calling a function with 2 parameters
+func (pw *PropsWorld) iStartTaskByCallingFunctionWithTwoParameters(taskName, functionName, param1, param2 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallFunctionWithTwoParameters(functionName, param1, param2)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingFunctionWithThreeParameters starts a task by calling a function with 3 parameters
+func (pw *PropsWorld) iStartTaskByCallingFunctionWithThreeParameters(taskName, functionName, param1, param2, param3 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallFunctionWithThreeParameters(functionName, param1, param2, param3)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingObjectWithMethod starts a task by calling an object method with 0 parameters
+func (pw *PropsWorld) iStartTaskByCallingObjectWithMethod(taskName, objectName, methodName string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallObjectWithMethod(objectName, methodName)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingObjectWithMethodWithParameter starts a task by calling an object method with 1 parameter
+func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithParameter(taskName, objectName, methodName, param1 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.ICallObjectWithMethodWithParameter(objectName, methodName, param1)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingObjectWithMethodWithTwoParameters starts a task by calling an object method with 2 parameters
+func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithTwoParameters(taskName, objectName, methodName, param1, param2 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallObjectWithMethodWithTwoParameters(objectName, methodName, param1, param2)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// iStartTaskByCallingObjectWithMethodWithThreeParameters starts a task by calling an object method with 3 parameters
+func (pw *PropsWorld) iStartTaskByCallingObjectWithMethodWithThreeParameters(taskName, objectName, methodName, param1, param2, param3 string) error {
+	pw.AsyncManager.StartTask(taskName, func(ctx context.Context) (interface{}, error) {
+		err := pw.iCallObjectWithMethodWithThreeParameters(objectName, methodName, param1, param2, param3)
+		if err != nil {
+			return nil, err
+		}
+		return pw.Props["result"], nil
+	})
+	return nil
+}
+
+// All-in-one wait functions (start task and wait for completion)
+
+// iWaitForFunction calls a function and waits for it to complete
+func (pw *PropsWorld) iWaitForFunction(functionName string) error {
+	taskName := "temp_" + functionName
+	err := pw.iStartTaskByCallingFunction(taskName, functionName)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForFunctionWithParameter calls a function with 1 parameter and waits for it
+func (pw *PropsWorld) iWaitForFunctionWithParameter(functionName, param1 string) error {
+	taskName := "temp_" + functionName
+	err := pw.iStartTaskByCallingFunctionWithParameter(taskName, functionName, param1)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForFunctionWithTwoParameters calls a function with 2 parameters and waits for it
+func (pw *PropsWorld) iWaitForFunctionWithTwoParameters(functionName, param1, param2 string) error {
+	taskName := "temp_" + functionName
+	err := pw.iStartTaskByCallingFunctionWithTwoParameters(taskName, functionName, param1, param2)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForFunctionWithThreeParameters calls a function with 3 parameters and waits for it
+func (pw *PropsWorld) iWaitForFunctionWithThreeParameters(functionName, param1, param2, param3 string) error {
+	taskName := "temp_" + functionName
+	err := pw.iStartTaskByCallingFunctionWithThreeParameters(taskName, functionName, param1, param2, param3)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForObjectWithMethod calls an object method and waits for it
+func (pw *PropsWorld) iWaitForObjectWithMethod(objectName, methodName string) error {
+	taskName := "temp_" + objectName + "_" + methodName
+	err := pw.iStartTaskByCallingObjectWithMethod(taskName, objectName, methodName)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForObjectWithMethodWithParameter calls an object method with 1 parameter and waits
+func (pw *PropsWorld) iWaitForObjectWithMethodWithParameter(objectName, methodName, param1 string) error {
+	taskName := "temp_" + objectName + "_" + methodName
+	err := pw.iStartTaskByCallingObjectWithMethodWithParameter(taskName, objectName, methodName, param1)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForObjectWithMethodWithTwoParameters calls an object method with 2 parameters and waits
+func (pw *PropsWorld) iWaitForObjectWithMethodWithTwoParameters(objectName, methodName, param1, param2 string) error {
+	taskName := "temp_" + objectName + "_" + methodName
+	err := pw.iStartTaskByCallingObjectWithMethodWithTwoParameters(taskName, objectName, methodName, param1, param2)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForObjectWithMethodWithThreeParameters calls an object method with 3 parameters and waits
+func (pw *PropsWorld) iWaitForObjectWithMethodWithThreeParameters(objectName, methodName, param1, param2, param3 string) error {
+	taskName := "temp_" + objectName + "_" + methodName
+	err := pw.iStartTaskByCallingObjectWithMethodWithThreeParameters(taskName, objectName, methodName, param1, param2, param3)
+	if err != nil {
+		return err
+	}
+	return pw.iWaitForTaskToComplete(taskName)
+}
+
+// iWaitForTaskToComplete waits for a task to complete (default 30s timeout)
+func (pw *PropsWorld) iWaitForTaskToComplete(taskName string) error {
 	err := pw.AsyncManager.WaitForTask(taskName, 30*time.Second)
 	if err != nil {
 		pw.Props["result"] = err
@@ -937,12 +1097,14 @@ func (pw *PropsWorld) iWaitForAsyncTaskToComplete(taskName string) error {
 	return nil
 }
 
-func (pw *PropsWorld) iWaitForAsyncTaskToCompleteWithin(taskName, timeoutStr string) error {
-	timeout, err := time.ParseDuration(timeoutStr + "s")
+// iWaitForTaskToCompleteWithinMs waits for a task to complete within a specified millisecond timeout
+func (pw *PropsWorld) iWaitForTaskToCompleteWithinMs(taskName, timeoutMs string) error {
+	timeoutVal, err := strconv.Atoi(timeoutMs)
 	if err != nil {
-		return fmt.Errorf("invalid timeout: %s", timeoutStr)
+		return fmt.Errorf("invalid timeout: %s", timeoutMs)
 	}
 
+	timeout := time.Duration(timeoutVal) * time.Millisecond
 	err = pw.AsyncManager.WaitForTask(taskName, timeout)
 	if err != nil {
 		pw.Props["result"] = err
@@ -1079,10 +1241,33 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^we wait for a period of "([^"]*)" ms$`, pw.waitForPeriod)
 	s.Step(`^schemas loaded$`, pw.schemasLoaded)
 
-	// Async operation patterns
-	s.Step(`^I start async task "([^"]*)"$`, pw.iStartAsyncTask)
-	s.Step(`^I wait for async task "([^"]*)" to complete$`, pw.iWaitForAsyncTaskToComplete)
-	s.Step(`^I wait for async task "([^"]*)" to complete within "([^"]*)" seconds$`, pw.iWaitForAsyncTaskToCompleteWithin)
+	// Async task patterns - starting tasks
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)"$`, pw.iStartTaskByCallingFunction)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with parameter "([^"]*)"$`, pw.iStartTaskByCallingFunctionWithParameter)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iStartTaskByCallingFunctionWithTwoParameters)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iStartTaskByCallingFunctionWithThreeParameters)
+
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with "([^"]*)"$`, pw.iStartTaskByCallingObjectWithMethod)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.iStartTaskByCallingObjectWithMethodWithParameter)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iStartTaskByCallingObjectWithMethodWithTwoParameters)
+	s.Step(`^I start task "([^"]*)" by calling "([^"]*)" with "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iStartTaskByCallingObjectWithMethodWithThreeParameters)
+
+	// Async task patterns - waiting for tasks
+	s.Step(`^I wait for task "([^"]*)" to complete$`, pw.iWaitForTaskToComplete)
+	s.Step(`^I wait for task "([^"]*)" to complete within "([^"]*)" ms$`, pw.iWaitForTaskToCompleteWithinMs)
+
+	// Async task patterns - all-in-one (start and wait)
+	s.Step(`^I wait for "([^"]*)"$`, pw.iWaitForFunction)
+	s.Step(`^I wait for "([^"]*)" with parameter "([^"]*)"$`, pw.iWaitForFunctionWithParameter)
+	s.Step(`^I wait for "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iWaitForFunctionWithTwoParameters)
+	s.Step(`^I wait for "([^"]*)" with parameters "([^"]*)", "([^"]*)" and "([^"]*)"$`, pw.iWaitForFunctionWithThreeParameters)
+
+	s.Step(`^I wait for "([^"]*)" with "([^"]*)"$`, pw.iWaitForObjectWithMethod)
+	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameter "([^"]*)"$`, pw.iWaitForObjectWithMethodWithParameter)
+	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithTwoParameters)
+	s.Step(`^I wait for "([^"]*)" with "([^"]*)" with parameters "([^"]*)" and "([^"]*)" and "([^"]*)"$`, pw.iWaitForObjectWithMethodWithThreeParameters)
+
+	// Async task patterns - task management
 	s.Step(`^async task "([^"]*)" should be running$`, pw.asyncTaskShouldBeRunning)
 	s.Step(`^async task "([^"]*)" should be completed$`, pw.asyncTaskShouldBeCompleted)
 	s.Step(`^I cancel async task "([^"]*)"$`, pw.iCancelAsyncTask)

@@ -27,6 +27,11 @@ func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^"([^"]*)" is a string array with colors$`, es.stringArrayWithColors)
 	ctx.Step(`^"([^"]*)" is an empty array$`, es.emptyArray)
 	ctx.Step(`^"([^"]*)" is an empty string$`, es.emptyString)
+
+	// Async test helper functions
+	ctx.Step(`^"([^"]*)" is a function which adds 10 to a number$`, es.functionAdds10)
+	ctx.Step(`^"([^"]*)" is a function which multiplies two numbers$`, es.functionMultiplies)
+	ctx.Step(`^"([^"]*)" is a function which concatenates three strings$`, es.functionConcatenates)
 }
 
 // Example-specific step definitions
@@ -83,5 +88,38 @@ func (es *ExampleSteps) emptyArray(variableName string) error {
 func (es *ExampleSteps) emptyString(variableName string) error {
 	// Create an empty string
 	es.Props[variableName] = ""
+	return nil
+}
+
+// Async helper functions
+func (es *ExampleSteps) functionAdds10(functionName string) error {
+	// Create a function that adds 10 to its parameter
+	addFunc := func(numStr string) interface{} {
+		num := 0
+		fmt.Sscanf(numStr, "%d", &num)
+		return fmt.Sprintf("%d", num+10)
+	}
+	es.Props[functionName] = addFunc
+	return nil
+}
+
+func (es *ExampleSteps) functionMultiplies(functionName string) error {
+	// Create a function that multiplies two numbers
+	multiplyFunc := func(a, b string) interface{} {
+		numA, numB := 0, 0
+		fmt.Sscanf(a, "%d", &numA)
+		fmt.Sscanf(b, "%d", &numB)
+		return fmt.Sprintf("%d", numA*numB)
+	}
+	es.Props[functionName] = multiplyFunc
+	return nil
+}
+
+func (es *ExampleSteps) functionConcatenates(functionName string) error {
+	// Create a function that concatenates three strings
+	concatFunc := func(a, b, c string) interface{} {
+		return a + b + c
+	}
+	es.Props[functionName] = concatFunc
 	return nil
 }
