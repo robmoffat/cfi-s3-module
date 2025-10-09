@@ -79,3 +79,4 @@ tmp
 
 cucumber-report.html
 report.json
+coverage.out

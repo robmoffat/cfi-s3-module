@@ -151,6 +151,28 @@ func NewPropsWorld() *PropsWorld {
 	}
 }
 
+// formatValueForComparison formats a value for display in comparisons
+// Complex types (maps, slices, structs) are JSON-formatted, simple types are stringified
+func formatValueForComparison(value interface{}) string {
+	if value == nil {
+		return "null"
+	}
+
+	v := reflect.ValueOf(value)
+	kind := v.Kind()
+
+	// For complex types, use JSON formatting
+	switch kind {
+	case reflect.Map, reflect.Slice, reflect.Array, reflect.Struct:
+		if jsonBytes, err := json.MarshalIndent(value, "", "  "); err == nil {
+			return string(jsonBytes)
+		}
+		return fmt.Sprintf("%+v", value)
+	default:
+		return fmt.Sprintf("%v (type: %T)", value, value)
+	}
+}
+
 // HandleResolve resolves variables and literals from string references
 func (pw *PropsWorld) HandleResolve(name string) interface{} {
 	if strings.HasPrefix(name, "{") && strings.HasSuffix(name, "}") {
@@ -583,6 +605,8 @@ func (pw *PropsWorld) fieldIsSliceOfObjectsWithLength(field, lengthField string)
 
 	actualSlice, ok := actual.([]interface{})
 	if !ok {
+		fmt.Printf("EXPECTED: slice\n")
+		fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
 		return fmt.Errorf("field %s is not a slice", field)
 	}
 
@@ -591,10 +615,14 @@ func (pw *PropsWorld) fieldIsSliceOfObjectsWithLength(field, lengthField string)
 		return fmt.Errorf("invalid length: %v", expectedLength)
 	}
 
+	fmt.Printf("EXPECTED: slice with length %d\n", expectedLen)
+	fmt.Printf("ACTUAL:   slice with length %d\n", len(actualSlice))
+
 	if len(actualSlice) != expectedLen {
 		return fmt.Errorf("expected length %d, got %d", expectedLen, len(actualSlice))
 	}
 
+	fmt.Printf("✓ Slice length matches\n")
 	return nil
 }
 
@@ -603,26 +631,36 @@ func (pw *PropsWorld) fieldIsSliceOfStringsWithValues(field string, table *godog
 
 	actualSlice, ok := actual.([]interface{})
 	if !ok {
+		fmt.Printf("EXPECTED: slice of strings\n")
+		fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
 		return fmt.Errorf("field %s is not a slice", field)
 	}
 
-	// Convert strings to expected format
-	expected := make([]map[string]string, len(table.Rows)-1)
+	// Build expected values
+	expectedValues := make([]string, len(table.Rows)-1)
 	for i := 1; i < len(table.Rows); i++ {
-		expected[i-1] = map[string]string{
-			"value": table.Rows[i].Cells[0].Value,
+		expectedValues[i-1] = table.Rows[i].Cells[0].Value
+	}
+
+	fmt.Printf("EXPECTED: %s\n", formatValueForComparison(expectedValues))
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
+	// Compare element by element
+	if len(actualSlice) != len(expectedValues) {
+		return fmt.Errorf("slice length mismatch: expected %d, got %d", len(expectedValues), len(actualSlice))
+	}
+
+	for i, expectedVal := range expectedValues {
+		actualVal := fmt.Sprintf("%v", actualSlice[i])
+		if actualVal != expectedVal {
+			fmt.Printf("EXPECTED[%d]: %s\n", i, expectedVal)
+			fmt.Printf("ACTUAL[%d]:   %s\n", i, actualVal)
+			return fmt.Errorf("element %d mismatch: expected %s, got %s", i, expectedVal, actualVal)
 		}
 	}
 
-	// Convert actual to same format
-	actualFormatted := make([]interface{}, len(actualSlice))
-	for i, val := range actualSlice {
-		actualFormatted[i] = map[string]interface{}{
-			"value": val,
-		}
-	}
-
-	return pw.matchData(actualFormatted, expected)
+	fmt.Printf("✓ All elements match\n")
+	return nil
 }
 
 func (pw *PropsWorld) fieldIsObjectWithContents(field string, table *godog.Table) error {
@@ -638,43 +676,88 @@ func (pw *PropsWorld) fieldIsObjectWithContents(field string, table *godog.Table
 		expected[cell.Value] = table.Rows[1].Cells[i].Value
 	}
 
-	matches, debugInfo := pw.doesRowMatch(expected, actual)
-	if !matches {
-		return fmt.Errorf("object does not match expected values:\n%s", debugInfo)
+	fmt.Printf("EXPECTED: %s\n", formatValueForComparison(expected))
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
+	// Check each expected field
+	actualMap, ok := actual.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("field %s is not an object/map", field)
 	}
 
+	for key, expectedVal := range expected {
+		actualVal, exists := actualMap[key]
+		if !exists {
+			fmt.Printf("EXPECTED[%s]: %s\n", key, expectedVal)
+			fmt.Printf("ACTUAL[%s]:   <missing>\n", key)
+			return fmt.Errorf("field %s missing in actual object", key)
+		}
+
+		actualStr := fmt.Sprintf("%v", actualVal)
+		if actualStr != expectedVal {
+			fmt.Printf("EXPECTED[%s]: %s\n", key, expectedVal)
+			fmt.Printf("ACTUAL[%s]:   %s\n", key, actualStr)
+			return fmt.Errorf("field %s mismatch: expected %s, got %s", key, expectedVal, actualStr)
+		}
+	}
+
+	fmt.Printf("✓ All fields match\n")
 	return nil
 }
 
 func (pw *PropsWorld) fieldIsNil(field string) error {
 	actual := pw.HandleResolve(field)
+
+	fmt.Printf("EXPECTED: null\n")
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
 	if actual != nil {
 		return fmt.Errorf("expected %s to be nil, got %v", field, actual)
 	}
+
+	fmt.Printf("✓ Value is nil\n")
 	return nil
 }
 
 func (pw *PropsWorld) fieldIsNotNil(field string) error {
 	actual := pw.HandleResolve(field)
+
+	fmt.Printf("EXPECTED: not null\n")
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
 	if actual == nil {
 		return fmt.Errorf("expected %s to not be nil", field)
 	}
+
+	fmt.Printf("✓ Value is not nil\n")
 	return nil
 }
 
 func (pw *PropsWorld) fieldIsTrue(field string) error {
 	actual := pw.HandleResolve(field)
+
+	fmt.Printf("EXPECTED: true (type: bool)\n")
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
 	if actual != true {
 		return fmt.Errorf("expected %s to be true, got %v", field, actual)
 	}
+
+	fmt.Printf("✓ Value is true\n")
 	return nil
 }
 
 func (pw *PropsWorld) fieldIsFalse(field string) error {
 	actual := pw.HandleResolve(field)
+
+	fmt.Printf("EXPECTED: false (type: bool)\n")
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
 	if actual != false {
 		return fmt.Errorf("expected %s to be false, got %v", field, actual)
 	}
+
+	fmt.Printf("✓ Value is false\n")
 	return nil
 }
 
@@ -693,15 +776,20 @@ func (pw *PropsWorld) fieldIsUndefined(field string) error {
 func (pw *PropsWorld) fieldIsEmpty(field string) error {
 	actual := pw.HandleResolve(field)
 
+	fmt.Printf("EXPECTED: empty\n")
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
+
 	switch v := actual.(type) {
 	case []interface{}:
 		if len(v) != 0 {
 			return fmt.Errorf("expected %s to be empty, got length %d", field, len(v))
 		}
+		fmt.Printf("✓ Array is empty\n")
 	case string:
 		if len(v) != 0 {
 			return fmt.Errorf("expected %s to be empty, got length %d", field, len(v))
 		}
+		fmt.Printf("✓ String is empty\n")
 	default:
 		return fmt.Errorf("cannot check if %s is empty: unsupported type", field)
 	}
@@ -713,24 +801,41 @@ func (pw *PropsWorld) fieldEquals(field, expected string) error {
 	actual := pw.HandleResolve(field)
 	expectedVal := pw.HandleResolve(expected)
 
-	actualStr := fmt.Sprintf("%v", actual)
-	expectedStr := fmt.Sprintf("%v", expectedVal)
+	fmt.Printf("EXPECTED: %s\n", formatValueForComparison(expectedVal))
+	fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
 
-	if actualStr != expectedStr {
+	if !reflect.DeepEqual(actual, expectedVal) {
+		// Try string conversion for comparison
+		actualStr := fmt.Sprintf("%v", actual)
+		expectedStr := fmt.Sprintf("%v", expectedVal)
+
+		if actualStr == expectedStr {
+			fmt.Printf("✓ Values match (after string conversion)\n")
+			return nil
+		}
+
 		return fmt.Errorf("expected %s to equal %s, got %s", field, expectedStr, actualStr)
 	}
 
+	fmt.Printf("✓ Values match\n")
 	return nil
 }
 
 func (pw *PropsWorld) fieldIsErrorWithMessage(field, errorType string) error {
 	actual := pw.HandleResolve(field)
 
+	fmt.Printf("EXPECTED: error with message \"%s\"\n", errorType)
+
 	if err, ok := actual.(error); ok {
+		fmt.Printf("ACTUAL:   error with message \"%s\"\n", err.Error())
+
 		if err.Error() != errorType {
 			return fmt.Errorf("expected error message %s, got %s", errorType, err.Error())
 		}
+
+		fmt.Printf("✓ Error message matches\n")
 	} else {
+		fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
 		return fmt.Errorf("expected %s to be an error", field)
 	}
 
@@ -740,7 +845,13 @@ func (pw *PropsWorld) fieldIsErrorWithMessage(field, errorType string) error {
 func (pw *PropsWorld) fieldIsError(field string) error {
 	actual := pw.HandleResolve(field)
 
-	if _, ok := actual.(error); !ok {
+	fmt.Printf("EXPECTED: error\n")
+
+	if err, ok := actual.(error); ok {
+		fmt.Printf("ACTUAL:   error: %s\n", err.Error())
+		fmt.Printf("✓ Value is an error\n")
+	} else {
+		fmt.Printf("ACTUAL:   %s\n", formatValueForComparison(actual))
 		return fmt.Errorf("expected %s to be an error, got %T", field, actual)
 	}
 
