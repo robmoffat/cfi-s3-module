@@ -18,7 +18,7 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     Unencrypted FTP should not be accessible. The service should either refuse connections
     or not expose FTP on standard ports (21).
 
-    Given an openssl s_client request to "21" on "{hostName}" protocol "ftp" as "connection"
+    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "ftp" as "connection"
     Then "{result}" is an error
 
   @telnet

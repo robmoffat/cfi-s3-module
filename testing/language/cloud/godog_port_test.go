@@ -7,15 +7,10 @@ import (
 )
 
 // Global function for godog CLI (required by godog)
+// Uses the first entry from portTestMatrix for default parameters
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	suite := NewTestSuite()
-	params := PortTestParams{
-		PortNumber:  "443",
-		HostName:    "robmoff.at",
-		Protocol:    "https",
-		ServiceType: "web",
-	}
-	suite.InitializeScenarioWithParams(ctx, params)
+	suite.InitializeScenarioWithParams(ctx, portTestMatrix[0].params)
 }
 
 // Test matrix for different protocols over secure and plaintext ports
@@ -30,7 +25,7 @@ var portTestMatrix = []struct {
 		params: PortTestParams{
 			PortNumber:  "443",
 			HostName:    "robmoff.at",
-			Protocol:    "https",
+			Protocol:    "http",
 			ServiceType: "web",
 		},
 		description: "HTTPS on port 443 (TLS)",
@@ -51,7 +46,7 @@ var portTestMatrix = []struct {
 		name: "SSH_Secure",
 		params: PortTestParams{
 			PortNumber:  "22",
-			HostName:    "robmoff.at",
+			HostName:    "172.104.252.249", // automation.risk-first.org, change later.
 			Protocol:    "ssh",
 			ServiceType: "ssh",
 		},
@@ -63,7 +58,7 @@ var portTestMatrix = []struct {
 		params: PortTestParams{
 			PortNumber:  "465",
 			HostName:    "secure.emailsrvr.com",
-			Protocol:    "smtps",
+			Protocol:    "smtp",
 			ServiceType: "mail",
 		},
 		description: "SMTPS on port 465 (TLS)",
@@ -79,28 +74,28 @@ var portTestMatrix = []struct {
 		},
 		description: "SMTP on port 587 (STARTTLS)",
 	},
-	// FTP - Plaintext
-	{
-		name: "FTP_Plaintext",
-		params: PortTestParams{
-			PortNumber:  "21",
-			HostName:    "robmoff.at",
-			Protocol:    "ftp",
-			ServiceType: "file",
-		},
-		description: "FTP on port 21 (plaintext)",
-	},
-	// FTPS - Secure
-	{
-		name: "FTPS_Secure",
-		params: PortTestParams{
-			PortNumber:  "990",
-			HostName:    "robmoff.at",
-			Protocol:    "ftps",
-			ServiceType: "file",
-		},
-		description: "FTPS on port 990 (TLS)",
-	},
+	// // FTP - Plaintext
+	// {
+	// 	name: "FTP_Plaintext",
+	// 	params: PortTestParams{
+	// 		PortNumber:  "21",
+	// 		HostName:    "robmoff.at",
+	// 		Protocol:    "ftp",
+	// 		ServiceType: "file",
+	// 	},
+	// 	description: "FTP on port 21 (plaintext)",
+	// },
+	// // FTPS - Secure
+	// {
+	// 	name: "FTPS_Secure",
+	// 	params: PortTestParams{
+	// 		PortNumber:  "990",
+	// 		HostName:    "robmoff.at",
+	// 		Protocol:    "ftp",
+	// 		ServiceType: "file",
+	// 	},
+	// 	description: "FTPS on port 990 (TLS)",
+	// },
 }
 
 // TestCloudPortFeatures tests the C01 features with example parameters

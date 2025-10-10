@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/cucumber/godog"
@@ -63,6 +64,10 @@ func (cw *CloudWorld) opensslClientRequest(tlsVersion, port, hostName, protocol,
 	}
 
 	cmd := exec.Command("openssl", args...)
+
+	// Debug: Print the command being executed
+	fmt.Printf("DEBUG: Executing: openssl %v\n", strings.Join(args, " "))
+
 	output, err := cmd.CombinedOutput()
 
 	cw.Props[fmt.Sprintf("%v", connectionNameResolved)] = string(output)
@@ -159,6 +164,9 @@ func (cw *CloudWorld) runTestSSL(reportName, testType, hostName, port string, us
 
 	args = append(args, "--jsonfile", tempFile, fmt.Sprintf("%v:%v", hostResolved, portResolved))
 	cmd := exec.Command("bash", args...)
+
+	// Debug: Print the command being executed
+	fmt.Printf("DEBUG: Executing: bash %v\n", strings.Join(args, " "))
 
 	_, err := cmd.CombinedOutput()
 	if err != nil {
