@@ -9,7 +9,7 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     If HTTP is accessible, it should immediately redirect to HTTPS (301/302 status codes).
     This ensures that all web traffic is encrypted.
 
-    Given a client connects using "http" for protocol "http" on port "{portNumber}"
+    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "http" as "connection"
     Then "{result}" is not an error
     And "{result}" contains "301"
 
@@ -18,7 +18,7 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     Unencrypted FTP should not be accessible. The service should either refuse connections
     or not expose FTP on standard ports (21).
 
-    Given a client connects using "ftp" for protocol "ftp" on port "21"
+    Given an openssl s_client request to "21" on "{hostName}" protocol "ftp" as "connection"
     Then "{result}" is an error
 
   @telnet
@@ -26,7 +26,7 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     Telnet transmits credentials in plaintext and should be completely disabled.
     SSH should be used instead for remote shell access.
 
-    Given a client connects using "telnet" for protocol "telnet" on port "{portNumber}"
+    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "telnet" as "connection"
     Then "{result}" is an error
 
   Scenario: Only secure protocols are exposed

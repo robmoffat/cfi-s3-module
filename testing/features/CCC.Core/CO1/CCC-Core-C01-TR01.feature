@@ -5,20 +5,20 @@ Feature: CCC.Core.C01.TR01 - Encrypt Data for Transmission - TLS 1.3 for Non-SSH
   So that data integrity and confidentiality are protected during transmission
 
   Scenario: Service accepts TLS 1.3 encrypted traffic
-    Given a client connects using "tls1_3" for protocol "{protocol}" on port "{portNumber}"
+    Given an openssl s_client request using "tls1_3" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"
     Then "{result}" is not nil
     And "{result}" is not an error
 
   Scenario: Service rejects TLS 1.2 traffic
-    Given a client connects using "tls1_2" for protocol "{protocol}" on port "{portNumber}"
+    Given an openssl s_client request using "tls1_2" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"
     Then "{result}" is an error
 
   Scenario: Service rejects TLS 1.1 traffic
-    Given a client connects using "tls1_1" for protocol "{protocol}" on port "{portNumber}"
+    Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"
     Then "{result}" is an error
 
   Scenario: Service rejects TLS 1.0 traffic
-    Given a client connects using "tls1" for protocol "{protocol}" on port "{portNumber}"
+    Given an openssl s_client request using "tls1" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"
     Then "{result}" is an error
 
   Scenario: Verify SSL/TLS protocol support

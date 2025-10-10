@@ -29,8 +29,8 @@ Where a test is `@PerService`:
 ### HTTPS
 
 ```gherkin
-Given an openssl s_client request to "{portNumber}" on "{hostName}" as "connection"
-Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" as "connection"
+Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
+Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
 Then I transmit "{httpRequest}" over "{connection}"
 # Where httpRequest could be:
 GET / HTTP/1.1
@@ -44,7 +44,7 @@ Will return the HTTP response in `result` and connection is closed.
 
 ### SMTP
 
-````gherkin
+```gherkin
 Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
 ```
 
@@ -79,6 +79,8 @@ QUIT
 
 Will return the response in `result`.
 
+### Arguments
+
 - TLS argument: `tls1_1`, `tls1_2`, `tls1_3` etc.
 
 | Protocol | Port | Start-TLS flag to use |
@@ -90,10 +92,12 @@ Will return the response in `result`.
 | Postgres | 5432 | `-starttls postgres`  |
 | XMPP     | 5222 | `-starttls xmpp`      |
 
+### Connection State
+
 ```gherkin
 Then close connection "{connection}"
 And "{connection}" is closed
-````
+```
 
 Closes the opened connection.
 
@@ -168,7 +172,7 @@ Then "{report}" is a slice of objects with at least the following contents
 ### HTTP
 
 ```gherkin
-Given a client connects using "http" for protocol "http" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "http" on port "{portNumber}" as "connection"
 ```
 
 This establishes a plaintext HTTP connection to verify the server is listening and responding. The `result` will contain the HTTP server response:
@@ -192,7 +196,7 @@ Note: HTTP should generally be redirected to HTTPS in production environments to
 ### Shell
 
 ```gherkin
-Given a client connects using "telnet" for protocol "telnet" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "telnet" on port "{portNumber}" as "connection"
 ```
 
 This establishes a plaintext telnet connection. The `result` will contain the server response, e.g.:
@@ -207,7 +211,7 @@ Note: Telnet should generally NOT be used in production as it transmits credenti
 ### FTP
 
 ```gherkin
-Given a client connects using "ftp" for protocol "ftp" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "ftp" on port "{portNumber}" as "connection"
 ```
 
 This establishes a plaintext FTP connection. The `result` will contain the FTP server banner:

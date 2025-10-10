@@ -9,7 +9,7 @@ Feature: CCC.Core.C01.TR02 - Encrypt Data for Transmission - SSH v2 for SSH Traf
     including man-in-the-middle attacks and session hijacking. This test ensures that the
     server advertises SSH-2.0 in its protocol banner and successfully establishes a connection.
 
-    Given a client connects using "ssh" for protocol "ssh" on port "{portNumber}"
+    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "ssh" as "connection"
     Then "{result}" is not nil
     And "{result}" is not an error
     And "{result}" contains "SSH-2.0"
