@@ -104,8 +104,9 @@ func (f *HTMLFormatter) Passed(pickle *messages.Pickle, step *messages.PickleSte
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.passedSteps++
-	fmt.Fprintf(&f.bodyBuffer, `<div class="step passed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
-		"", step.Text, formatDuration(duration))
+	argHTML := formatStepArgument(step.Argument)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step passed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
+		"", step.Text, formatDuration(duration), argHTML)
 }
 
 // Skipped is required by the formatters.Formatter interface
@@ -113,8 +114,9 @@ func (f *HTMLFormatter) Skipped(pickle *messages.Pickle, step *messages.PickleSt
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.skippedSteps++
-	fmt.Fprintf(&f.bodyBuffer, `<div class="step skipped"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
-		"", step.Text, formatDuration(duration))
+	argHTML := formatStepArgument(step.Argument)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step skipped"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
+		"", step.Text, formatDuration(duration), argHTML)
 }
 
 // Undefined is required by the formatters.Formatter interface
@@ -122,8 +124,9 @@ func (f *HTMLFormatter) Undefined(pickle *messages.Pickle, step *messages.Pickle
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.undefinedSteps++
-	fmt.Fprintf(&f.bodyBuffer, `<div class="step undefined"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
-		"", step.Text, formatDuration(duration))
+	argHTML := formatStepArgument(step.Argument)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step undefined"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
+		"", step.Text, formatDuration(duration), argHTML)
 }
 
 // Failed is required by the formatters.Formatter interface
@@ -132,19 +135,21 @@ func (f *HTMLFormatter) Failed(pickle *messages.Pickle, step *messages.PickleSte
 	f.stats.totalSteps++
 	f.stats.failedSteps++
 	f.stats.failedScenarios++ // Track failed scenario
+	argHTML := formatStepArgument(step.Argument)
 	errMsg := ""
 	if err != nil {
 		errMsg = fmt.Sprintf(`<div class="error-message">%s</div>`, err.Error())
 	}
-	fmt.Fprintf(&f.bodyBuffer, `<div class="step failed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
-		"", step.Text, formatDuration(duration), errMsg)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step failed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s%s</div>`,
+		"", step.Text, formatDuration(duration), argHTML, errMsg)
 }
 
 // Pending is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Pending(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
 	duration := time.Since(stepStartTime)
-	fmt.Fprintf(&f.bodyBuffer, `<div class="step pending"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
-		"", step.Text, formatDuration(duration))
+	argHTML := formatStepArgument(step.Argument)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step pending"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
+		"", step.Text, formatDuration(duration), argHTML)
 }
 
 // formatDuration formats a duration to whole numbers (e.g., 3.4ms -> 3ms)
@@ -159,6 +164,40 @@ func formatDuration(d time.Duration) string {
 		return d.Round(time.Millisecond).String()
 	}
 	return d.Round(time.Second).String()
+}
+
+// formatStepArgument formats step arguments (data tables and doc strings)
+func formatStepArgument(arg *messages.PickleStepArgument) string {
+	if arg == nil {
+		return ""
+	}
+
+	var buf bytes.Buffer
+
+	// Format data table
+	if arg.DataTable != nil && len(arg.DataTable.Rows) > 0 {
+		buf.WriteString(`<table class="data-table" style="margin: 10px 0; border-collapse: collapse;">`)
+		for i, row := range arg.DataTable.Rows {
+			buf.WriteString(`<tr>`)
+			for _, cell := range row.Cells {
+				if i == 0 {
+					// Header row
+					buf.WriteString(fmt.Sprintf(`<th style="border: 1px solid #ddd; padding: 8px; background: #f5f5f5;">%s</th>`, cell.Value))
+				} else {
+					buf.WriteString(fmt.Sprintf(`<td style="border: 1px solid #ddd; padding: 8px;">%s</td>`, cell.Value))
+				}
+			}
+			buf.WriteString(`</tr>`)
+		}
+		buf.WriteString(`</table>`)
+	}
+
+	// Format doc string
+	if arg.DocString != nil {
+		buf.WriteString(fmt.Sprintf(`<pre class="doc-string" style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-left: 4px solid #ddd;">%s</pre>`, arg.DocString.Content))
+	}
+
+	return buf.String()
 }
 
 // generateHTML creates the HTML report using stats and bodyBuffer
