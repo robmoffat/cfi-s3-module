@@ -1,28 +1,29 @@
-package cloud
+package example
 
 import (
 	"testing"
 
 	"github.com/cucumber/godog"
+	"github.com/finos-labs/ccc-cfi-compliance/testing/language/cloud"
 )
 
 // Global function for godog CLI (required by godog)
 // Uses the first entry from portTestMatrix for default parameters
 func InitializeScenario(ctx *godog.ScenarioContext) {
-	suite := NewTestSuite()
+	suite := cloud.NewTestSuite()
 	suite.InitializeScenarioWithParams(ctx, portTestMatrix[0].params)
 }
 
 // Test matrix for different protocols over secure and plaintext ports
 var portTestMatrix = []struct {
 	name        string
-	params      PortTestParams
+	params      cloud.PortTestParams
 	description string
 }{
 	// HTTPS - Secure
 	{
 		name: "HTTPS_Secure",
-		params: PortTestParams{
+		params: cloud.PortTestParams{
 			PortNumber:  "443",
 			HostName:    "robmoff.at",
 			Protocol:    "http",
@@ -33,7 +34,7 @@ var portTestMatrix = []struct {
 	// HTTP - Plaintext
 	{
 		name: "HTTP_Plaintext",
-		params: PortTestParams{
+		params: cloud.PortTestParams{
 			PortNumber:  "80",
 			HostName:    "robmoff.at",
 			Protocol:    "http",
@@ -44,7 +45,7 @@ var portTestMatrix = []struct {
 	// SSH - Secure
 	{
 		name: "SSH_Secure",
-		params: PortTestParams{
+		params: cloud.PortTestParams{
 			PortNumber:  "22",
 			HostName:    "172.104.252.249", // automation.risk-first.org, change later.
 			Protocol:    "ssh",
@@ -55,7 +56,7 @@ var portTestMatrix = []struct {
 	// SMTP - Secure (SMTPS)
 	{
 		name: "SMTPS_Secure",
-		params: PortTestParams{
+		params: cloud.PortTestParams{
 			PortNumber:  "465",
 			HostName:    "secure.emailsrvr.com",
 			Protocol:    "smtp",
@@ -66,7 +67,7 @@ var portTestMatrix = []struct {
 	// SMTP - Plaintext with STARTTLS
 	{
 		name: "SMTP_STARTTLS",
-		params: PortTestParams{
+		params: cloud.PortTestParams{
 			PortNumber:  "587",
 			HostName:    "secure.emailsrvr.com",
 			Protocol:    "smtp",
@@ -103,8 +104,8 @@ func TestCloudPortFeatures(t *testing.T) {
 	for _, tc := range portTestMatrix {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Testing: %s", tc.description)
-			reportPath := "output/report-" + tc.name
-			RunPortTests(t, tc.params, "../../features/CCC.Core/CO1", reportPath)
+			reportPath := "output/port-test-" + tc.params.HostName + "-" + tc.params.PortNumber
+			cloud.RunPortTests(t, tc.params, "../../../features/CCC.Core/CO1", reportPath)
 		})
 	}
 }

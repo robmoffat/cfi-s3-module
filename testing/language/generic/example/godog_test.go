@@ -25,8 +25,6 @@ func NewTestSuite() *TestSuite {
 	}
 }
 
-// TestingAdapter is defined in example_test.go
-
 // Setup method called before each scenario
 func (suite *TestSuite) setup() {
 	// Reset the world for each scenario
@@ -81,7 +79,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 // Test function for running with go test
 func TestGodogFeatures(t *testing.T) {
 	suite := NewTestSuite()
-	suite.T = &TestingAdapter{T: t}
+	suite.T = t
 
 	// Create HTML output file
 	htmlFile, err := os.Create("cucumber-report.html")

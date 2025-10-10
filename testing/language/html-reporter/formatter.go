@@ -187,7 +187,7 @@ func (f *HTMLFormatter) generateHTML() string {
                     <div class="timestamp">Duration: {{ .Duration }}</div>
                     {{ range .Steps }}
                     <div class="step {{ .Status }}">
-                        {{ .Name }}
+                        <strong>{{ .Keyword }}</strong> {{ .Name }}
                         <span class="timestamp" style="float: right;">{{ .Duration }}</span>
                         {{ if .ErrorMessage }}
                         <div class="error-message">{{ .ErrorMessage }}</div>
@@ -248,6 +248,19 @@ func (f *HTMLFormatter) generateHTML() string {
 			featureDataMap[pickle.Uri] = featureData
 		}
 
+		// Build step keyword map from Gherkin document
+		stepKeywordMap := make(map[string]string)
+		gherkinDoc := featureMap[pickle.Uri]
+		if gherkinDoc != nil && gherkinDoc.Feature != nil {
+			for _, child := range gherkinDoc.Feature.Children {
+				if child.Scenario != nil {
+					for _, step := range child.Scenario.Steps {
+						stepKeywordMap[step.Id] = step.Keyword
+					}
+				}
+			}
+		}
+
 		// Build scenario data
 		scenarioData := ScenarioData{
 			Keyword:  "Scenario",
@@ -279,8 +292,16 @@ func (f *HTMLFormatter) generateHTML() string {
 				}
 			}
 
+			// Get step keyword from Gherkin document
+			keyword := "Step"
+			if len(step.AstNodeIds) > 0 {
+				if kw, ok := stepKeywordMap[step.AstNodeIds[0]]; ok {
+					keyword = kw
+				}
+			}
+
 			scenarioData.Steps = append(scenarioData.Steps, StepData{
-				Keyword:      step.AstNodeIds[0], // This is a simplification
+				Keyword:      keyword,
 				Name:         step.Text,
 				Status:       status,
 				Duration:     duration,

@@ -3,10 +3,10 @@
 ## Annotations
 
 ```gherkin
-@PerPort           # Indicates that the test is written for a single port
-@http, @ssh        # Indicate that the test only applies to a specific port protocol (see below)
-@plaintext, @tls   # Applies to only plaintext/tls ports. e.g http is plaintext whereas https is tls.
-@PerService        # This test applies across the whole service
+@PerPort                        # Indicates that the test is written for a single port
+@http, @ssh, @ftp, @smtp        # Indicate that the test only applies to a specific port protocol (see below)
+@plaintext, @tls                # Applies to only plaintext/tls ports. e.g http is plaintext whereas https is tls.
+@PerService                     # This test applies across the whole service
 @tlp-green @tlp-amber @tlp-red  # Traffic-light protocol level of the control.
 ```
 

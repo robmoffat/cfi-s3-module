@@ -12,6 +12,38 @@ type ExampleSteps struct {
 	*generic.PropsWorld
 }
 
+// APIClient is an example API client for testing
+type APIClient struct {
+	baseURL string
+}
+
+func (c *APIClient) Get(endpoint string) map[string]interface{} {
+	return map[string]interface{}{
+		"status":  200,
+		"message": "success",
+		"data": []interface{}{
+			map[string]interface{}{
+				"id":     1,
+				"name":   "John Doe",
+				"active": true,
+			},
+			map[string]interface{}{
+				"id":     2,
+				"name":   "Jane Doe",
+				"active": false,
+			},
+		},
+	}
+}
+
+func (c *APIClient) Post(endpoint string, data interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"status":  201,
+		"message": "created",
+		"id":      123,
+	}
+}
+
 // NewExampleSteps creates a new example steps instance
 func NewExampleSteps(world *generic.PropsWorld) *ExampleSteps {
 	return &ExampleSteps{

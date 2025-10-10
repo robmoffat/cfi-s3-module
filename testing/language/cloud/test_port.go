@@ -3,11 +3,15 @@ package cloud
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
 	htmlreporter "github.com/finos-labs/ccc-cfi-compliance/testing/language/html-reporter"
 )
+
+// All known protocols for tag filtering
+var allProtocols = []string{"http", "ssh", "smtp", "ftp", "dns", "ldap", "telnet", "mysql", "postgres", "imap", "pop3"}
 
 // TestSuite for running cloud tests
 type TestSuite struct {
@@ -54,6 +58,24 @@ func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext,
 	suite.RegisterSteps(ctx)
 }
 
+// buildTagFilter builds the tag expression for filtering tests based on protocol
+func buildTagFilter(protocol string) string {
+	// Start with @PerPort requirement
+	tags := []string{"@PerPort"}
+
+	// Build exclusion list for all other protocols (but not the current one)
+	var exclusions []string
+	for _, p := range allProtocols {
+		if p != protocol {
+			exclusions = append(exclusions, "~@"+p)
+		}
+	}
+
+	// Combine: @PerPort && ~@otherProtocol1 && ~@otherProtocol2 ...
+	// This means: run @PerPort tests that are NOT tagged with other protocols
+	return strings.Join(append(tags, exclusions...), " && ")
+}
+
 // RunPortTests runs godog tests for a specific port configuration
 func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath string) {
 	suite := NewTestSuite()
@@ -74,10 +96,15 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	// Register the HTML formatter
 	godog.Format("html", "HTML report", htmlreporter.FormatterFunc)
 
+	// Build tag filter based on protocol
+	tagFilter := buildTagFilter(params.Protocol)
+	t.Logf("Using tag filter: %s", tagFilter)
+
 	opts := godog.Options{
 		Format:   "html",
 		Output:   htmlFile,
 		Paths:    []string{featuresPath},
+		Tags:     tagFilter,
 		TestingT: t,
 	}
 
