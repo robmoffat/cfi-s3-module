@@ -3,10 +3,10 @@ package cloud
 import (
 	"context"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/cucumber/godog"
+	htmlreporter "github.com/finos-labs/ccc-cfi-compliance/testing/language/html-reporter"
 )
 
 // TestSuite for running cloud tests
@@ -54,22 +54,6 @@ func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext,
 	suite.RegisterSteps(ctx)
 }
 
-// generateHTMLReport runs our custom HTML reporter
-func generateHTMLReport(t *testing.T, jsonReportPath, htmlReportPath string) {
-	t.Logf("Generating HTML report from %s to %s...", jsonReportPath, htmlReportPath)
-
-	// Run the HTML reporter
-	cmd := exec.Command("go", "run", "../generic/example/html-reporter/reporter.go", jsonReportPath, htmlReportPath)
-	cmd.Dir = "."
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("Warning: Failed to generate HTML report: %v\nOutput: %s", err, output)
-	} else {
-		t.Logf("HTML report generated: %s", htmlReportPath)
-	}
-}
-
 // RunPortTests runs godog tests for a specific port configuration
 func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath string) {
 	suite := NewTestSuite()
@@ -79,19 +63,20 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
 
-	// Create output file for JSON report (for HTML generation)
-	jsonReportPath := reportPath + ".json"
+	// Create HTML output file
 	htmlReportPath := reportPath + ".html"
-
-	jsonFile, err := os.Create(jsonReportPath)
+	htmlFile, err := os.Create(htmlReportPath)
 	if err != nil {
-		t.Fatalf("Failed to create %s: %v", jsonReportPath, err)
+		t.Fatalf("Failed to create %s: %v", htmlReportPath, err)
 	}
-	defer jsonFile.Close()
+	defer htmlFile.Close()
+
+	// Register the HTML formatter
+	godog.Format("html", "HTML report", htmlreporter.FormatterFunc)
 
 	opts := godog.Options{
-		Format:   "cucumber",
-		Output:   jsonFile,
+		Format:   "html",
+		Output:   htmlFile,
 		Paths:    []string{featuresPath},
 		TestingT: t,
 	}
@@ -104,8 +89,7 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 		Options: &opts,
 	}.Run()
 
-	// Generate HTML report after tests complete
-	generateHTMLReport(t, jsonReportPath, htmlReportPath)
+	t.Logf("HTML report generated: %s", htmlReportPath)
 
 	if status == 2 {
 		t.SkipNow()

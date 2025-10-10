@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/cucumber/godog"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/generic"
+	htmlreporter "github.com/finos-labs/ccc-cfi-compliance/testing/language/html-reporter"
 )
 
 // TestSuite for running godog features
@@ -72,22 +72,6 @@ func (suite *TestSuite) InitializeScenario(ctx *godog.ScenarioContext) {
 	suite.ExampleSteps.RegisterExampleSteps(ctx)
 }
 
-// generateHTMLReport runs our custom HTML reporter
-func generateHTMLReport(t *testing.T) {
-	t.Log("Generating HTML report...")
-
-	// Run the HTML reporter
-	cmd := exec.Command("go", "run", "../../html-reporter/reporter.go", "report.json", "cucumber-report.html")
-	cmd.Dir = "."
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("Warning: Failed to generate HTML report: %v\nOutput: %s", err, output)
-	} else {
-		t.Log("HTML report generated: cucumber-report.html")
-	}
-}
-
 // Global function for godog CLI (required by godog)
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	suite := NewTestSuite()
@@ -99,16 +83,19 @@ func TestGodogFeatures(t *testing.T) {
 	suite := NewTestSuite()
 	suite.T = &TestingAdapter{T: t}
 
-	// Create output file for JSON report (for HTML generation)
-	jsonFile, err := os.Create("report.json")
+	// Create HTML output file
+	htmlFile, err := os.Create("cucumber-report.html")
 	if err != nil {
-		t.Fatalf("Failed to create report.json: %v", err)
+		t.Fatalf("Failed to create cucumber-report.html: %v", err)
 	}
-	defer jsonFile.Close()
+	defer htmlFile.Close()
+
+	// Register the HTML formatter
+	godog.Format("html", "HTML report", htmlreporter.FormatterFunc)
 
 	opts := godog.Options{
-		Format:   "cucumber",
-		Output:   jsonFile,
+		Format:   "html",
+		Output:   htmlFile,
 		Paths:    []string{"features"},
 		TestingT: t,
 	}
@@ -119,8 +106,7 @@ func TestGodogFeatures(t *testing.T) {
 		Options:             &opts,
 	}.Run()
 
-	// Generate HTML report after tests complete
-	generateHTMLReport(t)
+	t.Log("HTML report generated: cucumber-report.html")
 
 	if status == 2 {
 		t.SkipNow()
