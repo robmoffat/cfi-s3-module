@@ -2,11 +2,8 @@ package htmlreporter
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
-	"os"
 	"time"
 
 	"github.com/cucumber/godog/formatters"
@@ -15,136 +12,161 @@ import (
 
 // HTMLFormatter is a godog formatter that generates HTML reports
 type HTMLFormatter struct {
-	out        io.Writer
-	features   []*messages.GherkinDocument
-	pickles    []*messages.Pickle
-	testRuns   []*messages.TestRunFinished
-	stepStatus map[string]map[string]string        // pickle ID -> step ID -> status
-	stepTiming map[string]map[string]time.Duration // pickle ID -> step ID -> duration
-	stepStart  map[string]map[string]time.Time     // pickle ID -> step ID -> start time
+	out   io.Writer
+	stats struct {
+		startTime       time.Time
+		endTime         time.Time
+		totalFeatures   int
+		totalScenarios  int
+		passedScenarios int
+		failedScenarios int
+		totalSteps      int
+		passedSteps     int
+		failedSteps     int
+		skippedSteps    int
+		undefinedSteps  int
+	}
+	bodyBuffer     bytes.Buffer
+	scenarioOpened bool
+	featureOpened  bool
 }
 
 // Feature captures feature information
 func (f *HTMLFormatter) Feature(gd *messages.GherkinDocument, uri string, c []byte) {
-	f.features = append(f.features, gd)
+	// Close previous feature if one was opened
+	if f.featureOpened {
+		// Close scenario if open
+		if f.scenarioOpened {
+			fmt.Fprintf(&f.bodyBuffer, `</div>`)
+			f.scenarioOpened = false
+		}
+		// Close feature divs (inner div and feature div)
+		fmt.Fprintf(&f.bodyBuffer, `</div></div>`)
+	}
+
+	f.stats.totalFeatures++
+	if gd.Feature != nil {
+		fmt.Fprintf(&f.bodyBuffer, `<div class="feature"><div class="feature-header"><strong>Feature:</strong> %s</div><div>`, gd.Feature.Name)
+		f.featureOpened = true
+	}
 }
 
 // Pickle captures pickle information
 func (f *HTMLFormatter) Pickle(pickle *messages.Pickle) {
-	f.pickles = append(f.pickles, pickle)
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
+	// Close previous scenario if one was opened
+	if f.scenarioOpened {
+		fmt.Fprintf(&f.bodyBuffer, `</div>`)
 	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	if f.stepStart[pickle.Id] == nil {
-		f.stepStart[pickle.Id] = make(map[string]time.Time)
-	}
+
+	f.stats.totalScenarios++
+	fmt.Fprintf(&f.bodyBuffer, `<div class="scenario"><strong>Scenario:</strong> %s<div class="timestamp">Duration: </div>`, pickle.Name)
+	f.scenarioOpened = true
 }
 
 // TestRunStarted is required by the formatters.Formatter interface
 func (f *HTMLFormatter) TestRunStarted() {
-	// Not needed for HTML output
+	f.stats.startTime = time.Now()
 }
 
 // TestRunFinished captures test run completion
 func (f *HTMLFormatter) TestRunFinished(msg *messages.TestRunFinished) {
-	f.testRuns = append(f.testRuns, msg)
+	f.stats.endTime = time.Now()
 }
 
 // Summary generates and writes the final HTML report
 func (f *HTMLFormatter) Summary() {
-	// This is called at the end - generate HTML here
+	// Close the last scenario if one was opened
+	if f.scenarioOpened {
+		fmt.Fprintf(&f.bodyBuffer, `</div>`)
+	}
+
+	// Close the last feature if one was opened
+	if f.featureOpened {
+		// Close feature divs (inner div and feature div)
+		fmt.Fprintf(&f.bodyBuffer, `</div></div>`)
+	}
+
+	// Generate and write HTML
 	html := f.generateHTML()
 	fmt.Fprint(f.out, html)
 }
 
+// Track step start time (stored temporarily as we can't keep state)
+var stepStartTime time.Time
+
 // Defined is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Defined(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
-	}
-	if f.stepStart[pickle.Id] == nil {
-		f.stepStart[pickle.Id] = make(map[string]time.Time)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "defined"
-	f.stepStart[pickle.Id][step.Id] = time.Now()
+	stepStartTime = time.Now()
 }
 
 // Passed is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Passed(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
-	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "passed"
-	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
-		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
-	}
+	duration := time.Since(stepStartTime)
+	f.stats.totalSteps++
+	f.stats.passedSteps++
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step passed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
+		"", step.Text, formatDuration(duration))
 }
 
 // Skipped is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Skipped(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
-	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "skipped"
-	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
-		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
-	}
+	duration := time.Since(stepStartTime)
+	f.stats.totalSteps++
+	f.stats.skippedSteps++
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step skipped"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
+		"", step.Text, formatDuration(duration))
 }
 
 // Undefined is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Undefined(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
-	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "undefined"
-	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
-		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
-	}
+	duration := time.Since(stepStartTime)
+	f.stats.totalSteps++
+	f.stats.undefinedSteps++
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step undefined"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
+		"", step.Text, formatDuration(duration))
 }
 
 // Failed is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Failed(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition, err error) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
+	duration := time.Since(stepStartTime)
+	f.stats.totalSteps++
+	f.stats.failedSteps++
+	f.stats.failedScenarios++ // Track failed scenario
+	errMsg := ""
+	if err != nil {
+		errMsg = fmt.Sprintf(`<div class="error-message">%s</div>`, err.Error())
 	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "failed"
-	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
-		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
-	}
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step failed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
+		"", step.Text, formatDuration(duration), errMsg)
 }
 
 // Pending is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Pending(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	if f.stepStatus[pickle.Id] == nil {
-		f.stepStatus[pickle.Id] = make(map[string]string)
-	}
-	if f.stepTiming[pickle.Id] == nil {
-		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
-	}
-	f.stepStatus[pickle.Id][step.Id] = "pending"
-	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
-		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
-	}
+	duration := time.Since(stepStartTime)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="step pending"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span></div>`,
+		"", step.Text, formatDuration(duration))
 }
 
-// generateHTML creates the HTML report
+// formatDuration formats a duration to whole numbers (e.g., 3.4ms -> 3ms)
+func formatDuration(d time.Duration) string {
+	if d < time.Microsecond {
+		return d.Round(time.Nanosecond).String()
+	}
+	if d < time.Millisecond {
+		return d.Round(time.Microsecond).String()
+	}
+	if d < time.Second {
+		return d.Round(time.Millisecond).String()
+	}
+	return d.Round(time.Second).String()
+}
+
+// generateHTML creates the HTML report using stats and bodyBuffer
 func (f *HTMLFormatter) generateHTML() string {
-	tmpl := `<!DOCTYPE html>
+	totalRunTime := f.stats.endTime.Sub(f.stats.startTime)
+	passedScenarios := f.stats.totalScenarios - f.stats.failedScenarios
+
+	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -171,217 +193,34 @@ func (f *HTMLFormatter) generateHTML() string {
         <h1>🥒 Cucumber Test Report</h1>
         <div class="summary">
             <h2>Summary</h2>
-            <p>Generated: {{ .Timestamp }}</p>
-            <p>Features: {{ .TotalFeatures }}</p>
-            <p>Scenarios: {{ .TotalScenarios }} (✅ {{ .PassedScenarios }} | ❌ {{ .FailedScenarios }})</p>
+            <p>Generated: %s</p>
+            <p>Total Run Time: %s</p>
+            <p>Features: %d</p>
+            <p>Scenarios: %d (✅ %d | ❌ %d)</p>
+            <p>Steps: %d (✅ %d | ❌ %d | ⏭️ %d | ❓ %d)</p>
         </div>
-        {{ range .Features }}
-        <div class="feature">
-            <div class="feature-header">
-                <strong>Feature:</strong> {{ .Name }}
-            </div>
-            <div>
-                {{ range .Scenarios }}
-                <div class="scenario">
-                    <strong>{{ .Keyword }}:</strong> {{ .Name }}
-                    <div class="timestamp">Duration: {{ .Duration }}</div>
-                    {{ range .Steps }}
-                    <div class="step {{ .Status }}">
-                        <strong>{{ .Keyword }}</strong> {{ .Name }}
-                        <span class="timestamp" style="float: right;">{{ .Duration }}</span>
-                        {{ if .ErrorMessage }}
-                        <div class="error-message">{{ .ErrorMessage }}</div>
-                        {{ end }}
-                    </div>
-                    {{ end }}
-                </div>
-                {{ end }}
-            </div>
-        </div>
-        {{ end }}
+        %s
     </div>
 </body>
-</html>`
-
-	data := struct {
-		Timestamp       string
-		TotalFeatures   int
-		TotalScenarios  int
-		PassedScenarios int
-		FailedScenarios int
-		Features        []FeatureData
-	}{
-		Timestamp:       time.Now().Format("2006-01-02 15:04:05"),
-		TotalFeatures:   len(f.features),
-		TotalScenarios:  0,
-		PassedScenarios: 0,
-		FailedScenarios: 0,
-		Features:        []FeatureData{},
-	}
-
-	// Build feature map from gherkin documents
-	featureMap := make(map[string]*messages.GherkinDocument)
-	for _, feature := range f.features {
-		if feature.Feature != nil {
-			featureMap[feature.Uri] = feature
-		}
-	}
-
-	// Build feature data from pickles
-	featureDataMap := make(map[string]*FeatureData)
-
-	for _, pickle := range f.pickles {
-		data.TotalScenarios++
-
-		// Get or create feature data
-		featureData, exists := featureDataMap[pickle.Uri]
-		if !exists {
-			gherkinDoc := featureMap[pickle.Uri]
-			featureName := pickle.Uri
-			if gherkinDoc != nil && gherkinDoc.Feature != nil {
-				featureName = gherkinDoc.Feature.Name
-			}
-			featureData = &FeatureData{
-				Name:      featureName,
-				Scenarios: []ScenarioData{},
-			}
-			featureDataMap[pickle.Uri] = featureData
-		}
-
-		// Build step keyword map from Gherkin document
-		stepKeywordMap := make(map[string]string)
-		gherkinDoc := featureMap[pickle.Uri]
-		if gherkinDoc != nil && gherkinDoc.Feature != nil {
-			for _, child := range gherkinDoc.Feature.Children {
-				if child.Scenario != nil {
-					for _, step := range child.Scenario.Steps {
-						stepKeywordMap[step.Id] = step.Keyword
-					}
-				}
-			}
-		}
-
-		// Build scenario data
-		scenarioData := ScenarioData{
-			Keyword:  "Scenario",
-			Name:     pickle.Name,
-			Status:   "passed", // default
-			Duration: "",
-			Steps:    []StepData{},
-		}
-
-		// Build step data
-		hasFailed := false
-		for _, step := range pickle.Steps {
-			status := "passed"
-			if f.stepStatus[pickle.Id] != nil {
-				if s, ok := f.stepStatus[pickle.Id][step.Id]; ok {
-					status = s
-				}
-			}
-
-			if status == "failed" {
-				hasFailed = true
-			}
-
-			// Get step duration
-			duration := ""
-			if f.stepTiming[pickle.Id] != nil {
-				if d, ok := f.stepTiming[pickle.Id][step.Id]; ok {
-					duration = d.String()
-				}
-			}
-
-			// Get step keyword from Gherkin document
-			keyword := "Step"
-			if len(step.AstNodeIds) > 0 {
-				if kw, ok := stepKeywordMap[step.AstNodeIds[0]]; ok {
-					keyword = kw
-				}
-			}
-
-			scenarioData.Steps = append(scenarioData.Steps, StepData{
-				Keyword:      keyword,
-				Name:         step.Text,
-				Status:       status,
-				Duration:     duration,
-				ErrorMessage: "",
-			})
-		}
-
-		// Update scenario status based on steps
-		if hasFailed {
-			scenarioData.Status = "failed"
-			data.FailedScenarios++
-		} else {
-			data.PassedScenarios++
-		}
-
-		featureData.Scenarios = append(featureData.Scenarios, scenarioData)
-	}
-
-	// Convert map to slice
-	for _, fd := range featureDataMap {
-		data.Features = append(data.Features, *fd)
-	}
-
-	t := template.Must(template.New("report").Parse(tmpl))
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
-		return fmt.Sprintf("Error generating HTML: %v", err)
-	}
-
-	return buf.String()
-}
-
-type FeatureData struct {
-	Name      string
-	Scenarios []ScenarioData
-}
-
-type ScenarioData struct {
-	Keyword  string
-	Name     string
-	Status   string
-	Duration string
-	Steps    []StepData
-}
-
-type StepData struct {
-	Keyword      string
-	Name         string
-	Status       string
-	Duration     string
-	ErrorMessage string
+</html>`,
+		f.stats.startTime.Format("2006-01-02 15:04:05"),
+		formatDuration(totalRunTime),
+		f.stats.totalFeatures,
+		f.stats.totalScenarios,
+		passedScenarios,
+		f.stats.failedScenarios,
+		f.stats.totalSteps,
+		f.stats.passedSteps,
+		f.stats.failedSteps,
+		f.stats.skippedSteps,
+		f.stats.undefinedSteps,
+		f.bodyBuffer.String(),
+	)
 }
 
 // FormatterFunc creates a new HTML formatter
 func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
 	return &HTMLFormatter{
-		out:        out,
-		stepStatus: make(map[string]map[string]string),
-		stepTiming: make(map[string]map[string]time.Duration),
-		stepStart:  make(map[string]map[string]time.Time),
+		out: out,
 	}
-}
-
-// WriteHTMLReport is a helper to write HTML to a file from JSON
-func WriteHTMLReport(jsonPath, htmlPath string) error {
-	// Read JSON
-	data, err := os.ReadFile(jsonPath)
-	if err != nil {
-		return fmt.Errorf("failed to read JSON: %w", err)
-	}
-
-	// Parse JSON (using existing struct from reporter.go)
-	var report interface{}
-	if err := json.Unmarshal(data, &report); err != nil {
-		return fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
-	// For now, just write a simple HTML
-	// TODO: Convert JSON to proper HTML using the template
-	htmlContent := "<!DOCTYPE html><html><body><h1>Report</h1><pre>" + string(data) + "</pre></body></html>"
-
-	return os.WriteFile(htmlPath, []byte(htmlContent), 0644)
 }
