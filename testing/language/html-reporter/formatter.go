@@ -75,6 +75,11 @@ func (f *HTMLFormatter) TestRunFinished(msg *messages.TestRunFinished) {
 
 // Summary generates and writes the final HTML report
 func (f *HTMLFormatter) Summary() {
+	// Set end time if not already set
+	if f.stats.endTime.IsZero() {
+		f.stats.endTime = time.Now()
+	}
+
 	// Close the last scenario if one was opened
 	if f.scenarioOpened {
 		fmt.Fprintf(&f.bodyBuffer, `</div>`)
@@ -259,7 +264,9 @@ func (f *HTMLFormatter) generateHTML() string {
 
 // FormatterFunc creates a new HTML formatter
 func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
-	return &HTMLFormatter{
+	f := &HTMLFormatter{
 		out: out,
 	}
+	f.stats.startTime = time.Now()
+	return f
 }
