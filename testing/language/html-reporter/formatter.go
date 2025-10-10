@@ -19,7 +19,9 @@ type HTMLFormatter struct {
 	features   []*messages.GherkinDocument
 	pickles    []*messages.Pickle
 	testRuns   []*messages.TestRunFinished
-	stepStatus map[string]map[string]string // pickle ID -> step ID -> status
+	stepStatus map[string]map[string]string        // pickle ID -> step ID -> status
+	stepTiming map[string]map[string]time.Duration // pickle ID -> step ID -> duration
+	stepStart  map[string]map[string]time.Time     // pickle ID -> step ID -> start time
 }
 
 // Feature captures feature information
@@ -32,6 +34,12 @@ func (f *HTMLFormatter) Pickle(pickle *messages.Pickle) {
 	f.pickles = append(f.pickles, pickle)
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
+	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
+	if f.stepStart[pickle.Id] == nil {
+		f.stepStart[pickle.Id] = make(map[string]time.Time)
 	}
 }
 
@@ -57,7 +65,11 @@ func (f *HTMLFormatter) Defined(pickle *messages.Pickle, step *messages.PickleSt
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepStart[pickle.Id] == nil {
+		f.stepStart[pickle.Id] = make(map[string]time.Time)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "defined"
+	f.stepStart[pickle.Id][step.Id] = time.Now()
 }
 
 // Passed is required by the formatters.Formatter interface
@@ -65,7 +77,13 @@ func (f *HTMLFormatter) Passed(pickle *messages.Pickle, step *messages.PickleSte
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "passed"
+	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
+		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
+	}
 }
 
 // Skipped is required by the formatters.Formatter interface
@@ -73,7 +91,13 @@ func (f *HTMLFormatter) Skipped(pickle *messages.Pickle, step *messages.PickleSt
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "skipped"
+	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
+		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
+	}
 }
 
 // Undefined is required by the formatters.Formatter interface
@@ -81,7 +105,13 @@ func (f *HTMLFormatter) Undefined(pickle *messages.Pickle, step *messages.Pickle
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "undefined"
+	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
+		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
+	}
 }
 
 // Failed is required by the formatters.Formatter interface
@@ -89,7 +119,13 @@ func (f *HTMLFormatter) Failed(pickle *messages.Pickle, step *messages.PickleSte
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "failed"
+	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
+		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
+	}
 }
 
 // Pending is required by the formatters.Formatter interface
@@ -97,7 +133,13 @@ func (f *HTMLFormatter) Pending(pickle *messages.Pickle, step *messages.PickleSt
 	if f.stepStatus[pickle.Id] == nil {
 		f.stepStatus[pickle.Id] = make(map[string]string)
 	}
+	if f.stepTiming[pickle.Id] == nil {
+		f.stepTiming[pickle.Id] = make(map[string]time.Duration)
+	}
 	f.stepStatus[pickle.Id][step.Id] = "pending"
+	if startTime, ok := f.stepStart[pickle.Id][step.Id]; ok {
+		f.stepTiming[pickle.Id][step.Id] = time.Since(startTime)
+	}
 }
 
 // generateHTML creates the HTML report
@@ -105,6 +147,7 @@ func (f *HTMLFormatter) generateHTML() string {
 	tmpl := `<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Cucumber Test Report</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
@@ -113,9 +156,9 @@ func (f *HTMLFormatter) generateHTML() string {
         .summary { background: #e8f5e9; padding: 15px; margin: 20px 0; border-radius: 5px; }
         .feature { margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
         .feature-header { background: #2196F3; color: white; padding: 10px; cursor: pointer; }
-        .scenario { margin: 10px; padding: 10px; background: #f9f9f9; border-left: 4px solid #2196F3; }
+        .scenario { margin: 10px; padding: 10px; background:rgba(249, 249, 249, 0.41); border-left: 4px solid #2196F3; }
         .step { padding: 5px 10px; margin: 5px 0; font-family: monospace; }
-        .passed { background: #c8e6c9; border-left: 4px solid #4CAF50; }
+        .passed { background: #c8e6c9; border-left: 4px solid #e7f7e8; }
         .failed { background: #ffcdd2; border-left: 4px solid #f44336; }
         .skipped { background: #fff9c4; border-left: 4px solid #FFC107; }
         .undefined { background: #e0e0e0; border-left: 4px solid #9E9E9E; }
@@ -139,12 +182,13 @@ func (f *HTMLFormatter) generateHTML() string {
             </div>
             <div>
                 {{ range .Scenarios }}
-                <div class="scenario {{ .Status }}">
+                <div class="scenario">
                     <strong>{{ .Keyword }}:</strong> {{ .Name }}
                     <div class="timestamp">Duration: {{ .Duration }}</div>
                     {{ range .Steps }}
                     <div class="step {{ .Status }}">
-                        <strong>{{ .Keyword }}</strong> {{ .Name }}
+                        {{ .Name }}
+                        <span class="timestamp" style="float: right;">{{ .Duration }}</span>
                         {{ if .ErrorMessage }}
                         <div class="error-message">{{ .ErrorMessage }}</div>
                         {{ end }}
@@ -227,10 +271,19 @@ func (f *HTMLFormatter) generateHTML() string {
 				hasFailed = true
 			}
 
+			// Get step duration
+			duration := ""
+			if f.stepTiming[pickle.Id] != nil {
+				if d, ok := f.stepTiming[pickle.Id][step.Id]; ok {
+					duration = d.String()
+				}
+			}
+
 			scenarioData.Steps = append(scenarioData.Steps, StepData{
 				Keyword:      step.AstNodeIds[0], // This is a simplification
 				Name:         step.Text,
 				Status:       status,
+				Duration:     duration,
 				ErrorMessage: "",
 			})
 		}
@@ -277,6 +330,7 @@ type StepData struct {
 	Keyword      string
 	Name         string
 	Status       string
+	Duration     string
 	ErrorMessage string
 }
 
@@ -285,6 +339,8 @@ func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
 	return &HTMLFormatter{
 		out:        out,
 		stepStatus: make(map[string]map[string]string),
+		stepTiming: make(map[string]map[string]time.Duration),
+		stepStart:  make(map[string]map[string]time.Time),
 	}
 }
 

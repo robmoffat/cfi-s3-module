@@ -19,8 +19,7 @@ Feature: Function and method calling patterns
     Given "testValue" is a function which returns a value of "hello world"
     When I refer to "{testValue}" as "myFunction"
     And I call "{myFunction}"
-    Then the function "result" should resolve
-    And "{result}" is "hello world"
+    Then "{result}" is "hello world"
 
   @calling
   Scenario: Counter functionality
