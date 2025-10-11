@@ -106,7 +106,8 @@ Will return the response in `connection.output`.
 
 ```gherkin
 Then I close connection "{connection}"
-And "{connection.state}" is "closed"
+And "{connection}" state is closed
+And "{connection}" state is open
 ```
 
 Closes the opened connection.

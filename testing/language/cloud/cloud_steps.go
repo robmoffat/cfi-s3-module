@@ -84,14 +84,17 @@ func (cw *CloudWorld) RegisterSteps(ctx *godog.ScenarioContext) {
 
 	// OpenSSL connections
 	ctx.Step(`^an openssl s_client request to "([^"]*)" on "([^"]*)" protocol "([^"]*)"$`, cw.opensslClientRequestWithProtocol)
-	ctx.Step(`^an openssl s_client request using "([^"]*)" to "([^"]*)" on "([^"]*)" protocol "([^"]*)"$`, cw.opensslClientRequestWithTLSAndProtocol)
+	ctx.Step(`^an openssl s_client request using "([^"]*)" to "([^"]*)" on "([^"]*)" protocol "([^"]*)"$`, func(tlsVersion, port, host, protocol string) error {
+		return cw.opensslClientRequestWithTLSAndProtocol(tlsVersion, port, host, protocol)
+	})
 
 	// Plain client connections
 	ctx.Step(`^a client connects to "([^"]*)" with protocol "([^"]*)" on port "([^"]*)"$`, cw.clientConnectsWithProtocol)
 
 	// Connection operations
 	ctx.Step(`^I transmit "([^"]*)" to "([^"]*)"$`, cw.transmitToConnection)
-	ctx.Step(`^close connection "([^"]*)"$`, cw.closeConnection)
+	ctx.Step(`^I close connection "([^"]*)"$`, cw.closeConnection)
+	ctx.Step(`^"([^"]*)" state is (open|closed)$`, cw.checkConnectionState)
 
 	// SSL Support reports
 	ctx.Step(`^"([^"]*)" contains details of SSL Support type "([^"]*)" for "([^"]*)" on port "([^"]*)"$`, cw.getSSLSupportReport)
@@ -163,6 +166,7 @@ func (cw *CloudWorld) opensslClientRequest(tlsVersion, port, hostName, protocol 
 	conn.startOutputReader(stderr)
 
 	cw.Props["result"] = conn
+	fmt.Printf("DEBUG: Created connection with State=%v, stored in result\n", conn.State)
 	return nil
 }
 
@@ -205,18 +209,38 @@ func (cw *CloudWorld) transmitToConnection(data, connectionInputPath string) err
 
 // closeConnection closes an established connection
 func (cw *CloudWorld) closeConnection(connectionName string) error {
-	connectionNameResolved := cw.HandleResolve(connectionName)
-
-	connInterface := cw.Props[fmt.Sprintf("%v", connectionNameResolved)]
+	// HandleResolve will resolve "{connection}" to the actual Connection object
+	connInterface := cw.HandleResolve(connectionName)
 	if connInterface == nil {
 		return fmt.Errorf("connection %s not found", connectionName)
 	}
 
 	// Type assert to Connection
 	if conn, ok := connInterface.(*Connection); ok {
-		conn.State = "closed"
+		conn.Close()
 	} else {
 		return fmt.Errorf("connection %s is not a valid Connection object", connectionName)
+	}
+
+	return nil
+}
+
+// checkConnectionState verifies that a connection has the expected state
+func (cw *CloudWorld) checkConnectionState(connectionName, expectedState string) error {
+	// HandleResolve will resolve "{connection}" to the actual Connection object
+	connInterface := cw.HandleResolve(connectionName)
+	if connInterface == nil {
+		return fmt.Errorf("connection %s not found", connectionName)
+	}
+
+	// Type assert to Connection
+	conn, ok := connInterface.(*Connection)
+	if !ok {
+		return fmt.Errorf("connection %s is not a valid Connection object", connectionName)
+	}
+
+	if conn.State != expectedState {
+		return fmt.Errorf("connection %s state is %s, expected %s", connectionName, conn.State, expectedState)
 	}
 
 	return nil

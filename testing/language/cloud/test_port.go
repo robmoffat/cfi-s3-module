@@ -36,8 +36,9 @@ type PortTestParams struct {
 
 // Setup method called before each scenario with provided parameters
 func (suite *TestSuite) setupWithParams(params PortTestParams) {
-	// Reset the world for each scenario
-	suite.CloudWorld = NewCloudWorld()
+	// Don't reset CloudWorld - just reset Props
+	// This ensures step registrations remain valid
+	suite.Props = make(map[string]interface{})
 
 	// Setup pre-configured variables for @PerPort tests
 	suite.Props["portNumber"] = params.PortNumber
