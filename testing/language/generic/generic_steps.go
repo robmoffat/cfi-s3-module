@@ -481,6 +481,91 @@ func (pw *PropsWorld) fieldIsSliceOfObjectsWithContents(field string, table *god
 	return pw.matchData(actualSlice, expected)
 }
 
+func (pw *PropsWorld) fieldIsSliceOfObjectsWithAtLeastContents(field string, table *godog.Table) error {
+	actual := pw.HandleResolve(field)
+
+	// Convert to slice of interfaces
+	actualSlice, ok := actual.([]interface{})
+	if !ok {
+		return fmt.Errorf("field %s is not a slice", field)
+	}
+
+	// Convert table to expected format
+	expected := make([]map[string]string, len(table.Rows)-1) // Skip header
+	headers := make([]string, len(table.Rows[0].Cells))
+
+	for i, cell := range table.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
+	for i := 1; i < len(table.Rows); i++ {
+		row := make(map[string]string)
+		for j, cell := range table.Rows[i].Cells {
+			row[headers[j]] = cell.Value
+		}
+		expected[i-1] = row
+	}
+
+	// Check that at least the expected rows exist in the actual slice
+	for _, expectedRow := range expected {
+		found := false
+		for _, actualItem := range actualSlice {
+			match, _ := pw.doesRowMatch(expectedRow, actualItem)
+			if match {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Printf("✗ Expected row not found in slice: %+v\n", expectedRow)
+			return fmt.Errorf("expected row not found: %+v", expectedRow)
+		}
+	}
+
+	fmt.Printf("✓ All expected rows found in slice\n")
+	return nil
+}
+
+func (pw *PropsWorld) fieldIsSliceOfObjectsWhichDoesntContainAnyOf(field string, table *godog.Table) error {
+	actual := pw.HandleResolve(field)
+
+	// Convert to slice of interfaces
+	actualSlice, ok := actual.([]interface{})
+	if !ok {
+		return fmt.Errorf("field %s is not a slice", field)
+	}
+
+	// Convert table to expected format
+	unwanted := make([]map[string]string, len(table.Rows)-1) // Skip header
+	headers := make([]string, len(table.Rows[0].Cells))
+
+	for i, cell := range table.Rows[0].Cells {
+		headers[i] = cell.Value
+	}
+
+	for i := 1; i < len(table.Rows); i++ {
+		row := make(map[string]string)
+		for j, cell := range table.Rows[i].Cells {
+			row[headers[j]] = cell.Value
+		}
+		unwanted[i-1] = row
+	}
+
+	// Check that none of the unwanted rows exist in the actual slice
+	for _, unwantedRow := range unwanted {
+		for _, actualItem := range actualSlice {
+			match, _ := pw.doesRowMatch(unwantedRow, actualItem)
+			if match {
+				fmt.Printf("✗ Unwanted row found in slice: %+v\n", unwantedRow)
+				return fmt.Errorf("unwanted row found in slice: %+v", unwantedRow)
+			}
+		}
+	}
+
+	fmt.Printf("✓ None of the unwanted rows found in slice\n")
+	return nil
+}
+
 func (pw *PropsWorld) fieldIsSliceOfObjectsWithLength(field, lengthField string) error {
 	actual := pw.HandleResolve(field)
 	expectedLength := pw.HandleResolve(lengthField)
@@ -1127,9 +1212,11 @@ func (pw *PropsWorld) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^I refer to "([^"]*)" as "([^"]*)"$`, pw.IReferToAs)
 
 	// Data validation patterns
-	s.Step(`^"([^"]*)" is an slice of objects with the following contents$`, pw.fieldIsSliceOfObjectsWithContents)
-	s.Step(`^"([^"]*)" is an slice of objects with length "([^"]*)"$`, pw.fieldIsSliceOfObjectsWithLength)
-	s.Step(`^"([^"]*)" is an slice of strings with the following values$`, pw.fieldIsSliceOfStringsWithValues)
+	s.Step(`^"([^"]*)" is a slice of objects with the following contents$`, pw.fieldIsSliceOfObjectsWithContents)
+	s.Step(`^"([^"]*)" is a slice of objects with at least the following contents$`, pw.fieldIsSliceOfObjectsWithAtLeastContents)
+	s.Step(`^"([^"]*)" is a slice of objects which doesn't contain any of$`, pw.fieldIsSliceOfObjectsWhichDoesntContainAnyOf)
+	s.Step(`^"([^"]*)" is a slice of objects with length "([^"]*)"$`, pw.fieldIsSliceOfObjectsWithLength)
+	s.Step(`^"([^"]*)" is a slice of strings with the following values$`, pw.fieldIsSliceOfStringsWithValues)
 	s.Step(`^"([^"]*)" is an object with the following contents$`, pw.fieldIsObjectWithContents)
 
 	// Value assertions

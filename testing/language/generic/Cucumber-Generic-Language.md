@@ -131,7 +131,7 @@ When I refer to "{sourceField}" as "targetField"
 #### Slice of Maps Validation
 
 ```gherkin
-Then "{fieldName}" is an slice of objects with the following contents
+Then "{fieldName}" is a slice of objects with the following contents
 | property1 | property2 | property3 |
 | value1    | value2    | value3    |
 | value4    | value5    | value6    |

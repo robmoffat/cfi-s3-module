@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -282,7 +285,11 @@ func (cw *CloudWorld) runTestSSL(reportName, testType, hostName, port string, us
 	tempFile += ".json"
 
 	// Build testssl.sh command
-	testsslPath := "./testssl.sh"
+	// Get the directory where this Go file is located
+	_, filename, _, _ := runtime.Caller(0)
+	cloudDir := filepath.Dir(filename)
+	testsslPath := filepath.Join(cloudDir, "testssl.sh")
+
 	args := []string{testsslPath, "--" + fmt.Sprintf("%v", testTypeResolved)}
 
 	if useSTARTTLS {
@@ -295,6 +302,10 @@ func (cw *CloudWorld) runTestSSL(reportName, testType, hostName, port string, us
 	}
 
 	args = append(args, "--jsonfile", tempFile, fmt.Sprintf("%v:%v", hostResolved, portResolved))
+
+	// Remove the temporary JSON file if it exists from a previous run
+	os.Remove(tempFile)
+
 	cmd := exec.Command("bash", args...)
 
 	// Debug: Print the command being executed

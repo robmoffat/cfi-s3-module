@@ -54,3 +54,16 @@ Feature: Data comparison and validation patterns
     Then "{person.Name}" is "Alice"
     And "{person.Age}" is "30"
     And "{person}" is not nil
+
+  @comparison
+  Scenario: Array contains at least some elements
+    Then "{users}" is a slice of objects with at least the following contents
+      | name     | active |
+      | John Doe | true   |
+
+  @comparison
+  Scenario: Array doesn't contain unwanted elements
+    Then "{users}" is a slice of objects which doesn't contain any of
+      | name       | active |
+      | Intruder 1 | true   |
+      | Dodgy Guy  | false  |
