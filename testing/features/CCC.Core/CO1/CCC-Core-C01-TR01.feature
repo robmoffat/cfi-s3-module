@@ -6,7 +6,11 @@ Feature: CCC.Core.C01.TR01 - Encrypt Data for Transmission - TLS 1.3 for Non-SSH
 
   Scenario: Service accepts TLS 1.3 encrypted traffic
     Given an openssl s_client request using "tls1_3" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"
-    Then "{result}" is not an error
+    And I refer to "{result}" as "connection"
+    Then "{connection}" is not an error
+    And "{connection.state}" is "open"
+    And I call "{connection}" with "Close"
+    Then "{connection.state}" is "closed"
 
   Scenario: Service rejects TLS 1.2 traffic
     Given an openssl s_client request using "tls1_2" to "{portNumber}" on "{hostName}" protocol "{protocol}" as "connection"

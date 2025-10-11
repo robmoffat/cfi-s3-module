@@ -13,6 +13,7 @@ import (
 // HTMLFormatter is a godog formatter that generates HTML reports
 type HTMLFormatter struct {
 	out   io.Writer
+	title string
 	stats struct {
 		startTime       time.Time
 		endTime         time.Time
@@ -214,7 +215,7 @@ func (f *HTMLFormatter) generateHTML() string {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cucumber Test Report</title>
+    <title>%s</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -234,7 +235,7 @@ func (f *HTMLFormatter) generateHTML() string {
 </head>
 <body>
     <div class="container">
-        <h1>🥒 Cucumber Test Report</h1>
+        <h1>🥒 %s</h1>
         <div class="summary">
             <h2>Summary</h2>
             <p>Generated: %s</p>
@@ -247,6 +248,8 @@ func (f *HTMLFormatter) generateHTML() string {
     </div>
 </body>
 </html>`,
+		f.title,
+		f.title,
 		f.stats.startTime.Format("2006-01-02 15:04:05"),
 		formatDuration(totalRunTime),
 		f.stats.totalFeatures,
@@ -265,7 +268,8 @@ func (f *HTMLFormatter) generateHTML() string {
 // FormatterFunc creates a new HTML formatter
 func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
 	f := &HTMLFormatter{
-		out: out,
+		out:   out,
+		title: suite,
 	}
 	f.stats.startTime = time.Now()
 	return f

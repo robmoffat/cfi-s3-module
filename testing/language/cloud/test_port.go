@@ -100,6 +100,9 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	tagFilter := buildTagFilter(params.Protocol)
 	t.Logf("Using tag filter: %s", tagFilter)
 
+	// Create report title
+	reportTitle := "Port Test Report: " + params.HostName + ":" + params.PortNumber + " (" + params.Protocol + ")"
+
 	opts := godog.Options{
 		Format:   "html",
 		Output:   htmlFile,
@@ -109,7 +112,7 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	}
 
 	status := godog.TestSuite{
-		Name: "Cloud Port Features",
+		Name: reportTitle,
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			suite.InitializeScenarioWithParams(ctx, params)
 		},

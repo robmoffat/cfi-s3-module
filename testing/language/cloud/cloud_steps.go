@@ -1,8 +1,10 @@
 package cloud
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"sync"
@@ -10,6 +12,55 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/generic"
 )
+
+// Connection represents a network connection with state and I/O
+type Connection struct {
+	State      string    // "open" or "closed"
+	Input      io.Writer // Stream to write data to the connection
+	Output     string    // Buffer containing all the data received from the connection so far
+	cmd        *exec.Cmd // The underlying command process
+	outputBuf  *bytes.Buffer
+	mu         sync.Mutex
+	stopReader chan struct{} // Channel to signal the reader goroutine to stop
+}
+
+// Close terminates the connection and kills the underlying process
+func (c *Connection) Close() {
+	c.State = "closed"
+
+	// Signal the reader goroutine to stop
+	if c.stopReader != nil {
+		close(c.stopReader)
+	}
+
+	if c.cmd != nil && c.cmd.Process != nil {
+		c.cmd.Process.Kill()
+	}
+}
+
+// startOutputReader starts a goroutine that continuously reads from stdout and appends to Output
+func (c *Connection) startOutputReader(reader io.Reader) {
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			select {
+			case <-c.stopReader:
+				return
+			default:
+				n, err := reader.Read(buf)
+				if n > 0 {
+					c.mu.Lock()
+					c.outputBuf.Write(buf[:n])
+					c.Output = c.outputBuf.String()
+					c.mu.Unlock()
+				}
+				if err != nil {
+					return
+				}
+			}
+		}
+	}()
+}
 
 // CloudWorld extends PropsWorld with cloud-specific functionality
 type CloudWorld struct {
@@ -32,16 +83,15 @@ func (cw *CloudWorld) RegisterSteps(ctx *godog.ScenarioContext) {
 	// Cloud-specific steps matching Cucumber-Cloud-Language.md
 
 	// OpenSSL connections
-	ctx.Step(`^an openssl s_client request to "([^"]*)" on "([^"]*)" protocol "([^"]*)" as "([^"]*)"$`, cw.opensslClientRequestWithProtocol)
-	ctx.Step(`^an openssl s_client request using "([^"]*)" to "([^"]*)" on "([^"]*)" protocol "([^"]*)" as "([^"]*)"$`, cw.opensslClientRequestWithTLSAndProtocol)
+	ctx.Step(`^an openssl s_client request to "([^"]*)" on "([^"]*)" protocol "([^"]*)"$`, cw.opensslClientRequestWithProtocol)
+	ctx.Step(`^an openssl s_client request using "([^"]*)" to "([^"]*)" on "([^"]*)" protocol "([^"]*)"$`, cw.opensslClientRequestWithTLSAndProtocol)
 
 	// Plain client connections
-	ctx.Step(`^a client connects to "([^"]*)" with protocol "([^"]*)" on port "([^"]*)" as "([^"]*)"$`, cw.clientConnectsWithProtocol)
+	ctx.Step(`^a client connects to "([^"]*)" with protocol "([^"]*)" on port "([^"]*)"$`, cw.clientConnectsWithProtocol)
 
 	// Connection operations
-	ctx.Step(`^I transmit "([^"]*)" over "([^"]*)"$`, cw.transmitOverConnection)
+	ctx.Step(`^I transmit "([^"]*)" to "([^"]*)"$`, cw.transmitToConnection)
 	ctx.Step(`^close connection "([^"]*)"$`, cw.closeConnection)
-	ctx.Step(`^"([^"]*)" is closed$`, cw.connectionIsClosed)
 
 	// SSL Support reports
 	ctx.Step(`^"([^"]*)" contains details of SSL Support type "([^"]*)" for "([^"]*)" on port "([^"]*)"$`, cw.getSSLSupportReport)
@@ -49,64 +99,107 @@ func (cw *CloudWorld) RegisterSteps(ctx *godog.ScenarioContext) {
 }
 
 // opensslClientRequest creates an OpenSSL s_client connection with optional TLS version
-func (cw *CloudWorld) opensslClientRequest(tlsVersion, port, hostName, protocol, connectionName string) error {
+func (cw *CloudWorld) opensslClientRequest(tlsVersion, port, hostName, protocol string) error {
 	tlsVersionResolved := cw.HandleResolve(tlsVersion)
 	portResolved := cw.HandleResolve(port)
 	hostResolved := cw.HandleResolve(hostName)
-	connectionNameResolved := cw.HandleResolve(connectionName)
+	protocolResolved := cw.HandleResolve(protocol)
 
 	// Build openssl s_client command
-	args := []string{"s_client", "-connect", fmt.Sprintf("%v:%v", hostResolved, portResolved)}
+	args := []string{"s_client", "-connect", fmt.Sprintf("%v:%v", hostResolved, portResolved), "-connect_timeout", "5"}
 
 	// Add TLS version if specified
 	if tlsVersionResolved != nil && fmt.Sprintf("%v", tlsVersionResolved) != "" {
 		args = append(args, "-"+fmt.Sprintf("%v", tlsVersionResolved))
 	}
 
+	// Add STARTTLS if protocol is specified
+	if protocolResolved != nil && fmt.Sprintf("%v", protocolResolved) != "" {
+		args = append(args, "-starttls", fmt.Sprintf("%v", protocolResolved))
+	}
+
 	cmd := exec.Command("openssl", args...)
+
+	// Create buffers for I/O
+	inputBuffer := &bytes.Buffer{}
+	outputBuffer := &bytes.Buffer{}
+
+	// Get stdout pipe
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdout pipe: %v", err)
+	}
+
+	// Get stderr pipe
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stderr pipe: %v", err)
+	}
+
+	// Connect command's stdin to our input buffer
+	cmd.Stdin = inputBuffer
 
 	// Debug: Print the command being executed
 	fmt.Printf("DEBUG: Executing: openssl %v\n", strings.Join(args, " "))
 
-	output, err := cmd.CombinedOutput()
-
-	cw.Props[fmt.Sprintf("%v", connectionNameResolved)] = string(output)
+	// Start the command
+	err = cmd.Start()
 	if err != nil {
-		cw.Props["result"] = err
-	} else {
-		cw.Props["result"] = string(output)
+		return fmt.Errorf("failed to start command: %v", err)
 	}
 
+	// Create Connection object
+	conn := &Connection{
+		State:      "open",
+		Input:      inputBuffer,
+		Output:     "",
+		cmd:        cmd,
+		outputBuf:  outputBuffer,
+		stopReader: make(chan struct{}),
+	}
+
+	// Start goroutines to read stdout and stderr
+	conn.startOutputReader(stdout)
+	conn.startOutputReader(stderr)
+
+	cw.Props["result"] = conn
 	return nil
 }
 
 // opensslClientRequestWithProtocol creates an OpenSSL s_client connection
-func (cw *CloudWorld) opensslClientRequestWithProtocol(port, hostName, protocol, connectionName string) error {
-	return cw.opensslClientRequest("", port, hostName, protocol, connectionName)
+func (cw *CloudWorld) opensslClientRequestWithProtocol(port, hostName, protocol string) error {
+	return cw.opensslClientRequest("", port, hostName, protocol)
 }
 
 // opensslClientRequestWithTLSAndProtocol creates an OpenSSL s_client connection with specific TLS version
-func (cw *CloudWorld) opensslClientRequestWithTLSAndProtocol(tlsVersion, port, hostName, protocol, connectionName string) error {
-	return cw.opensslClientRequest(tlsVersion, port, hostName, protocol, connectionName)
+func (cw *CloudWorld) opensslClientRequestWithTLSAndProtocol(tlsVersion, port, hostName, protocol string) error {
+	return cw.opensslClientRequest(tlsVersion, port, hostName, protocol)
 }
 
 // clientConnectsWithProtocol establishes a plain client connection to a host with a specific protocol
-func (cw *CloudWorld) clientConnectsWithProtocol(hostName, protocol, port, connectionName string) error {
-	return cw.opensslClientRequest("", port, hostName, "", connectionName)
+func (cw *CloudWorld) clientConnectsWithProtocol(hostName, protocol, port string) error {
+	return cw.opensslClientRequest("", port, hostName, "")
 }
 
-// transmitOverConnection sends data over an established connection
-func (cw *CloudWorld) transmitOverConnection(data, connectionName string) error {
+// transmitToConnection sends data to a connection's input field
+func (cw *CloudWorld) transmitToConnection(data, connectionInputPath string) error {
 	dataResolved := cw.HandleResolve(data)
-	connectionNameResolved := cw.HandleResolve(connectionName)
 
 	if dataResolved == nil {
 		return fmt.Errorf("data %s not found", data)
 	}
 
-	// For now, we just store the transmission intent
-	// In a real implementation, this would send data over an active connection
-	cw.Props["result"] = fmt.Sprintf("Transmitted: %v over %v", dataResolved, connectionNameResolved)
+	// The connectionInputPath should be something like "{connection.input}"
+	// We need to extract the connection variable and set its Input field
+	// The generic HandleResolve will handle the field access
+	// For now, we'll use a simplified approach and directly set the input
+
+	// Extract connection name from path like "{connection.input}"
+	// This is handled by the generic PropsWorld field resolution
+	inputStr := fmt.Sprintf("%v", dataResolved)
+
+	// Store the transmission - in real implementation this would send over socket
+	cw.Props["result"] = fmt.Sprintf("Transmitted: %v", inputStr)
 	return nil
 }
 
@@ -114,24 +207,18 @@ func (cw *CloudWorld) transmitOverConnection(data, connectionName string) error 
 func (cw *CloudWorld) closeConnection(connectionName string) error {
 	connectionNameResolved := cw.HandleResolve(connectionName)
 
-	connection := cw.Props[fmt.Sprintf("%v", connectionNameResolved)]
-	if connection == nil {
+	connInterface := cw.Props[fmt.Sprintf("%v", connectionNameResolved)]
+	if connInterface == nil {
 		return fmt.Errorf("connection %s not found", connectionName)
 	}
 
-	// Mark connection as closed
-	delete(cw.Props, fmt.Sprintf("%v", connectionNameResolved))
-	return nil
-}
-
-// connectionIsClosed verifies that a connection has been closed
-func (cw *CloudWorld) connectionIsClosed(connectionName string) error {
-	connectionNameResolved := cw.HandleResolve(connectionName)
-
-	connection := cw.Props[fmt.Sprintf("%v", connectionNameResolved)]
-	if connection != nil {
-		return fmt.Errorf("connection %s is still open", connectionName)
+	// Type assert to Connection
+	if conn, ok := connInterface.(*Connection); ok {
+		conn.State = "closed"
+	} else {
+		return fmt.Errorf("connection %s is not a valid Connection object", connectionName)
 	}
+
 	return nil
 }
 

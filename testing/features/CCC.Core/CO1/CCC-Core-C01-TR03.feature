@@ -9,25 +9,30 @@ Feature: CCC.Core.C01.TR03 - Encrypt Data for Transmission - Block or Redirect U
     If HTTP is accessible, it should immediately redirect to HTTPS (301/302 status codes).
     This ensures that all web traffic is encrypted.
 
-    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "http" as "connection"
-    Then "{result}" is not an error
-    And "{result}" contains "301"
+    Given a client connects to "{hostName}" with protocol "http" on port "{portNumber}"
+    And I refer to "{result}" as "connection"
+    Then "{connection}" is not an error
+    And "{connection.output}" contains "301"
+    And I call "{connection}" with "Close"
+    Then "{connection.state}" is "closed"
 
   @ftp
   Scenario: FTP traffic is blocked or not exposed
     Unencrypted FTP should not be accessible. The service should either refuse connections
     or not expose FTP on standard ports (21).
 
-    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "ftp" as "connection"
-    Then "{result}" is an error
+    Given a client connects to "{hostName}" with protocol "ftp" on port "{portNumber}"
+    And I refer to "{result}" as "connection"
+    Then "{connection}" is an error
 
   @telnet
   Scenario: Telnet traffic is blocked or not exposed
     Telnet transmits credentials in plaintext and should be completely disabled.
     SSH should be used instead for remote shell access.
 
-    Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "telnet" as "connection"
-    Then "{result}" is an error
+    Given a client connects to "{hostName}" with protocol "telnet" on port "{portNumber}"
+    And I refer to "{result}" as "connection"
+    Then "{connection}" is an error
 
   Scenario: Only secure protocols are exposed
     Verify that the service only exposes encrypted protocols by checking that

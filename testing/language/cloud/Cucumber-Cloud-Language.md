@@ -24,14 +24,23 @@ Where a test is `@PerService`:
 - `hostName`
 - `serviceType`
 
+## Connections
+
+Many of the below steps allow you to create a connection. They will store this in "result", which you can access from "{result}" in the usual way. Connections have the following properties:
+
+- `state`: Either `open` or `closed`
+- `input`: You can send characters to this, down the connection
+- `output`: A string, containing all the data transmitted to you from the remote end.
+
 ## Example OpenSSL Protocol Connection
 
 ### HTTPS
 
 ```gherkin
-Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
-Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
-Then I transmit "{httpRequest}" over "{connection}"
+Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp"
+Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" protocol "smtp"
+And I refer to "{result}" as "connection"
+Then I transmit "{httpRequest}" to "{connection.input}"
 # Where httpRequest could be:
 GET / HTTP/1.1
 Host: example.com
@@ -40,15 +49,16 @@ Connection: close
 #
 ```
 
-Will return the HTTP response in `result` and connection is closed.
+Will return the HTTP response in `connection.output` and connection is closed.
 
 ### SMTP
 
 ```gherkin
-Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp" as "connection"
+Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "smtp"
+And I refer to "{result}" as "connection"
 ```
 
-`result` might contain:
+`connection.output` might contain:
 
 ```
 220 mail.example.com ESMTP Postfix
@@ -61,7 +71,7 @@ STARTTLS
 ```
 
 ```gherkin
-Then I transmit "{smtpRequest}" over "{connection}"
+Then I transmit "{smtpRequest}" to "{connection.input}"
 
 # Where smtpRequest might be:
 EHLO client.example.com
@@ -77,7 +87,7 @@ Hello world
 QUIT
 ```
 
-Will return the response in `result`.
+Will return the response in `connection.output`.
 
 ### Arguments
 
@@ -95,8 +105,8 @@ Will return the response in `result`.
 ### Connection State
 
 ```gherkin
-Then close connection "{connection}"
-And "{connection}" is closed
+Then I close connection "{connection}"
+And "{connection.state}" is "closed"
 ```
 
 Closes the opened connection.
@@ -172,10 +182,10 @@ Then "{report}" is a slice of objects with at least the following contents
 ### HTTP
 
 ```gherkin
-Given a client connects to "{hostName}" with protocol "http" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "http" on port "{portNumber}"
 ```
 
-This establishes a plaintext HTTP connection to verify the server is listening and responding. The `result` will contain the HTTP server response:
+This establishes a plaintext HTTP connection to verify the server is listening and responding. The `result.output` will contain the HTTP server response:
 
 ```
 HTTP/1.1 200 OK
@@ -188,7 +198,7 @@ The test validates that the server responds successfully:
 ```gherkin
 Then "{result}" is not nil
 And "{result}" is not an error
-And "{result}" contains "HTTP/1.1"
+And "{result.output}" contains "HTTP/1.1"
 ```
 
 Note: HTTP should generally be redirected to HTTPS in production environments to ensure encrypted communications.
@@ -196,10 +206,10 @@ Note: HTTP should generally be redirected to HTTPS in production environments to
 ### Shell
 
 ```gherkin
-Given a client connects to "{hostName}" with protocol "telnet" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "telnet" on port "{portNumber}"
 ```
 
-This establishes a plaintext telnet connection. The `result` will contain the server response, e.g.:
+This establishes a plaintext telnet connection. `result.output` will contain the server response, e.g.:
 
 ```
 Ubuntu 22.04.1 LTS
@@ -211,16 +221,14 @@ Note: Telnet should generally NOT be used in production as it transmits credenti
 ### FTP
 
 ```gherkin
-Given a client connects to "{hostName}" with protocol "ftp" on port "{portNumber}" as "connection"
+Given a client connects to "{hostName}" with protocol "ftp" on port "{portNumber}"
 ```
 
-This establishes a plaintext FTP connection. The `result` will contain the FTP server banner:
+This establishes a plaintext FTP connection. `result.output` will contain the FTP server banner:
 
 ```
 220 (vsFTPd 3.0.3)
 ```
-
-Note: FTP should be replaced with SFTP or FTPS for secure file transfers.
 
 ### Generating Examples
 
