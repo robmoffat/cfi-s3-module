@@ -3,13 +3,14 @@ module github.com/finos-labs/ccc-cfi-compliance/testing
 go 1.21
 
 require (
+	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/cucumber/godog v0.14.1
-	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
+	github.com/cucumber/messages/go/v21 v21.0.1
 )
 
 require (
+	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
-	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.4 // indirect

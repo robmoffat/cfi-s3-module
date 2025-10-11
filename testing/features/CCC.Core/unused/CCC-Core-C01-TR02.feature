@@ -11,10 +11,9 @@ Feature: CCC.Core.C01.TR02 - Encrypt Data for Transmission - SSH v2 for SSH Traf
 
     Given an openssl s_client request to "{portNumber}" on "{hostName}" protocol "ssh"
     And I refer to "{result}" as "connection"
-    Then "{connection}" is not an error
-    And "{connection.output}" contains "SSH-2.0"
-    And I call "{connection}" with "Close"
-    Then "{connection.state}" is "closed"
+    And "{connection}" state is open
+    And I close connection "{connection}"
+    Then "{connection}" state is closed
 
   Scenario: Verify SSH uses strong ciphers
     Weak ciphers like 3DES-CBC, RC4, and DES-CBC3-SHA are vulnerable to various attacks

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/cucumber/godog"
-	"github.com/oliveagle/jsonpath"
 )
 
 // AsyncTask represents an asynchronous operation
@@ -159,13 +159,47 @@ func (pw *PropsWorld) HandleResolve(name string) interface{} {
 				return val
 			}
 
-			// Try JSONPath resolution
+			// Try direct property lookup first
 			if val, exists := pw.Props[stripped]; exists {
 				return val
 			}
 
+			// Try struct field access (e.g., "connection.state")
+			if strings.Contains(stripped, ".") {
+				parts := strings.Split(stripped, ".")
+				if len(parts) == 2 {
+					objName := parts[0]
+					fieldName := parts[1]
+
+					if obj, exists := pw.Props[objName]; exists {
+						// Try to access the field using reflection
+						v := reflect.ValueOf(obj)
+
+						// Handle pointer types
+						if v.Kind() == reflect.Ptr {
+							v = v.Elem()
+						}
+
+						if v.Kind() == reflect.Struct {
+							// Try the field name as-is (case-sensitive)
+							field := v.FieldByName(fieldName)
+							if field.IsValid() {
+								return field.Interface()
+							}
+
+							// Try with capitalized first letter
+							capitalizedFieldName := strings.ToUpper(fieldName[:1]) + fieldName[1:]
+							field = v.FieldByName(capitalizedFieldName)
+							if field.IsValid() {
+								return field.Interface()
+							}
+						}
+					}
+				}
+			}
+
 			// Try JSONPath query
-			if result, err := jsonpath.JsonPathLookup(pw.Props, "$."+stripped); err == nil {
+			if result, err := jsonpath.Get("$."+stripped, pw.Props); err == nil {
 				return result
 			}
 
@@ -227,7 +261,7 @@ func (pw *PropsWorld) doesRowMatch(expected map[string]string, actual interface{
 
 		// Use JSONPath to get the field value
 		var foundVal interface{}
-		if result, err := jsonpath.JsonPathLookup(actualMap, "$."+field); err == nil {
+		if result, err := jsonpath.Get("$."+field, actualMap); err == nil {
 			foundVal = result
 		} else {
 			debugInfo = append(debugInfo, fmt.Sprintf("  %s: NOT FOUND (JSONPath error: %v)", field, err))

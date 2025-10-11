@@ -47,3 +47,10 @@ Feature: Data comparison and validation patterns
     And "emptyString" is an empty string
     Then "{emptyArray}" is empty
     And "{emptyString}" is empty
+
+  @comparison
+  Scenario: Struct field navigation
+    Given "person" is a struct with Name "Alice" and Age "30"
+    Then "{person.Name}" is "Alice"
+    And "{person.Age}" is "30"
+    And "{person}" is not nil

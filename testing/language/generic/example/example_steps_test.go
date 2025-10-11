@@ -59,6 +59,7 @@ func (es *ExampleSteps) RegisterExampleSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^"([^"]*)" is a string array with colors$`, es.stringArrayWithColors)
 	ctx.Step(`^"([^"]*)" is an empty array$`, es.emptyArray)
 	ctx.Step(`^"([^"]*)" is an empty string$`, es.emptyString)
+	ctx.Step(`^"([^"]*)" is a struct with Name "([^"]*)" and Age "([^"]*)"$`, es.structWithNameAndAge)
 
 	// Test helper functions - one for each parameter count
 	ctx.Step(`^"([^"]*)" is a test function with no parameters$`, es.functionNoParams)
@@ -175,5 +176,20 @@ func (to *TestObject) JoinThree(a, b, c interface{}) interface{} {
 
 func (es *ExampleSteps) iHaveTestObjectIn(variableName string) error {
 	es.Props[variableName] = &TestObject{}
+	return nil
+}
+
+// Person is a struct for testing struct field navigation
+type Person struct {
+	Name string
+	Age  string
+}
+
+func (es *ExampleSteps) structWithNameAndAge(variableName, name, age string) error {
+	person := &Person{
+		Name: name,
+		Age:  age,
+	}
+	es.Props[variableName] = person
 	return nil
 }
