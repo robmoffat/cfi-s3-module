@@ -193,6 +193,17 @@ func (pw *PropsWorld) HandleResolve(name string) interface{} {
 							if field.IsValid() {
 								return field.Interface()
 							}
+
+							// Check if the object has a getter method for this field
+							// e.g., GetState() for State field
+							getterName := "Get" + capitalizedFieldName
+							method := reflect.ValueOf(obj).MethodByName(getterName)
+							if method.IsValid() {
+								results := method.Call(nil)
+								if len(results) > 0 {
+									return results[0].Interface()
+								}
+							}
 						}
 					}
 				}

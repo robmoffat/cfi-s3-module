@@ -20,13 +20,16 @@ type Connection struct {
 	Output     string    // Buffer containing all the data received from the connection so far
 	cmd        *exec.Cmd // The underlying command process
 	outputBuf  *bytes.Buffer
-	mu         sync.Mutex
+	stateMu    sync.Mutex    // Protects State field
+	mu         sync.Mutex    // Protects Output field
 	stopReader chan struct{} // Channel to signal the reader goroutine to stop
 }
 
 // Close terminates the connection and kills the underlying process
 func (c *Connection) Close() {
+	c.stateMu.Lock()
 	c.State = "closed"
+	c.stateMu.Unlock()
 
 	// Signal the reader goroutine to stop
 	if c.stopReader != nil {
@@ -36,6 +39,13 @@ func (c *Connection) Close() {
 	if c.cmd != nil && c.cmd.Process != nil {
 		c.cmd.Process.Kill()
 	}
+}
+
+// GetState returns the current connection state (thread-safe)
+func (c *Connection) GetState() string {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	return c.State
 }
 
 // startOutputReader starts a goroutine that continuously reads from stdout and appends to Output
@@ -165,6 +175,15 @@ func (cw *CloudWorld) opensslClientRequest(tlsVersion, port, hostName, protocol 
 	conn.startOutputReader(stdout)
 	conn.startOutputReader(stderr)
 
+	// Monitor the command and set state to closed when it exits
+	go func() {
+		cmd.Wait()
+		conn.stateMu.Lock()
+		conn.State = "closed"
+		conn.stateMu.Unlock()
+		fmt.Printf("DEBUG: Command exited, connection state set to closed\n")
+	}()
+
 	cw.Props["result"] = conn
 	fmt.Printf("DEBUG: Created connection with State=%v, stored in result\n", conn.State)
 	return nil
@@ -239,8 +258,10 @@ func (cw *CloudWorld) checkConnectionState(connectionName, expectedState string)
 		return fmt.Errorf("connection %s is not a valid Connection object", connectionName)
 	}
 
-	if conn.State != expectedState {
-		return fmt.Errorf("connection %s state is %s, expected %s", connectionName, conn.State, expectedState)
+	// Thread-safe state access
+	currentState := conn.GetState()
+	if currentState != expectedState {
+		return fmt.Errorf("connection %s state is %s, expected %s", connectionName, currentState, expectedState)
 	}
 
 	return nil

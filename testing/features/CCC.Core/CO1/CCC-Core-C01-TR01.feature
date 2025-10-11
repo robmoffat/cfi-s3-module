@@ -14,7 +14,9 @@ Feature: CCC.Core.C01.TR01 - Encrypt Data for Transmission - TLS 1.3 for Non-SSH
 
   Scenario: Service rejects TLS 1.2 traffic
     Given an openssl s_client request using "tls1_2" to "{portNumber}" on "{hostName}" protocol "{protocol}"
-    Then "{result}" is an error
+    And I refer to "{result}" as "connection"
+    And we wait for a period of "40" ms
+    Then "{connection.State}" is "closed"
   # Scenario: Service rejects TLS 1.1 traffic
   #   Given an openssl s_client request using "tls1_1" to "{portNumber}" on "{hostName}" protocol "{protocol}"
   #   Then "{result}" is an error

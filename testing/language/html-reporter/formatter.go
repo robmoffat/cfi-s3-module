@@ -30,6 +30,7 @@ type HTMLFormatter struct {
 	bodyBuffer     bytes.Buffer
 	scenarioOpened bool
 	featureOpened  bool
+	stepKeywords   map[string]string // Maps step AST node IDs to their keywords (Given/When/Then/And/But)
 }
 
 // Feature captures feature information
@@ -47,6 +48,20 @@ func (f *HTMLFormatter) Feature(gd *messages.GherkinDocument, uri string, c []by
 
 	f.stats.totalFeatures++
 	if gd.Feature != nil {
+		// Extract step keywords from the Gherkin document
+		for _, child := range gd.Feature.Children {
+			if child.Scenario != nil {
+				for _, step := range child.Scenario.Steps {
+					f.stepKeywords[step.Id] = step.Keyword
+				}
+			}
+			if child.Background != nil {
+				for _, step := range child.Background.Steps {
+					f.stepKeywords[step.Id] = step.Keyword
+				}
+			}
+		}
+
 		fmt.Fprintf(&f.bodyBuffer, `<div class="feature"><div class="feature-header"><strong>Feature:</strong> %s</div><div>`, gd.Feature.Name)
 		f.featureOpened = true
 	}
@@ -60,7 +75,7 @@ func (f *HTMLFormatter) Pickle(pickle *messages.Pickle) {
 	}
 
 	f.stats.totalScenarios++
-	fmt.Fprintf(&f.bodyBuffer, `<div class="scenario"><strong>Scenario:</strong> %s<div class="timestamp">Duration: </div>`, pickle.Name)
+	fmt.Fprintf(&f.bodyBuffer, `<div class="scenario"><strong>Scenario:</strong> %s`, pickle.Name)
 	f.scenarioOpened = true
 }
 
@@ -100,6 +115,21 @@ func (f *HTMLFormatter) Summary() {
 // Track step start time (stored temporarily as we can't keep state)
 var stepStartTime time.Time
 
+// getStepKeyword returns the keyword for a step by looking up its AST node IDs
+func (f *HTMLFormatter) getStepKeyword(step *messages.PickleStep) string {
+	// Check if we have any AST node IDs for this step
+	if len(step.AstNodeIds) > 0 {
+		// Try each AST node ID (usually the first one is the step itself)
+		for _, astNodeId := range step.AstNodeIds {
+			if keyword, exists := f.stepKeywords[astNodeId]; exists {
+				return keyword
+			}
+		}
+	}
+	// Fallback to a generic keyword if not found
+	return "Step"
+}
+
 // Defined is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Defined(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
 	stepStartTime = time.Now()
@@ -110,9 +140,10 @@ func (f *HTMLFormatter) Passed(pickle *messages.Pickle, step *messages.PickleSte
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.passedSteps++
+	keyword := f.getStepKeyword(step)
 	argHTML := formatStepArgument(step.Argument)
 	fmt.Fprintf(&f.bodyBuffer, `<div class="step passed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
-		"", step.Text, formatDuration(duration), argHTML)
+		keyword, step.Text, formatDuration(duration), argHTML)
 }
 
 // Skipped is required by the formatters.Formatter interface
@@ -120,9 +151,10 @@ func (f *HTMLFormatter) Skipped(pickle *messages.Pickle, step *messages.PickleSt
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.skippedSteps++
+	keyword := f.getStepKeyword(step)
 	argHTML := formatStepArgument(step.Argument)
 	fmt.Fprintf(&f.bodyBuffer, `<div class="step skipped"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
-		"", step.Text, formatDuration(duration), argHTML)
+		keyword, step.Text, formatDuration(duration), argHTML)
 }
 
 // Undefined is required by the formatters.Formatter interface
@@ -130,9 +162,10 @@ func (f *HTMLFormatter) Undefined(pickle *messages.Pickle, step *messages.Pickle
 	duration := time.Since(stepStartTime)
 	f.stats.totalSteps++
 	f.stats.undefinedSteps++
+	keyword := f.getStepKeyword(step)
 	argHTML := formatStepArgument(step.Argument)
 	fmt.Fprintf(&f.bodyBuffer, `<div class="step undefined"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
-		"", step.Text, formatDuration(duration), argHTML)
+		keyword, step.Text, formatDuration(duration), argHTML)
 }
 
 // Failed is required by the formatters.Formatter interface
@@ -141,21 +174,23 @@ func (f *HTMLFormatter) Failed(pickle *messages.Pickle, step *messages.PickleSte
 	f.stats.totalSteps++
 	f.stats.failedSteps++
 	f.stats.failedScenarios++ // Track failed scenario
+	keyword := f.getStepKeyword(step)
 	argHTML := formatStepArgument(step.Argument)
 	errMsg := ""
 	if err != nil {
 		errMsg = fmt.Sprintf(`<div class="error-message">%s</div>`, err.Error())
 	}
 	fmt.Fprintf(&f.bodyBuffer, `<div class="step failed"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s%s</div>`,
-		"", step.Text, formatDuration(duration), argHTML, errMsg)
+		keyword, step.Text, formatDuration(duration), argHTML, errMsg)
 }
 
 // Pending is required by the formatters.Formatter interface
 func (f *HTMLFormatter) Pending(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
 	duration := time.Since(stepStartTime)
+	keyword := f.getStepKeyword(step)
 	argHTML := formatStepArgument(step.Argument)
 	fmt.Fprintf(&f.bodyBuffer, `<div class="step pending"><strong>%s</strong> %s<span class="timestamp" style="float: right;">%s</span>%s</div>`,
-		"", step.Text, formatDuration(duration), argHTML)
+		keyword, step.Text, formatDuration(duration), argHTML)
 }
 
 // formatDuration formats a duration to whole numbers (e.g., 3.4ms -> 3ms)
@@ -268,8 +303,9 @@ func (f *HTMLFormatter) generateHTML() string {
 // FormatterFunc creates a new HTML formatter
 func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
 	f := &HTMLFormatter{
-		out:   out,
-		title: suite,
+		out:          out,
+		title:        suite,
+		stepKeywords: make(map[string]string),
 	}
 	f.stats.startTime = time.Now()
 	return f
