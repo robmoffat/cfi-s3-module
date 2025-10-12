@@ -12,44 +12,44 @@ import (
 
 // OCSFFormatter is a godog formatter that generates OCSF JSON reports
 type OCSFFormatter struct {
-	out              io.Writer
-	findings         []OCSFFinding
-	currentFeature   string
-	currentScenario  *OCSFFinding
-	scenarioStarted  bool
-	startTime        time.Time
+	out             io.Writer
+	findings        []OCSFFinding
+	currentFeature  string
+	currentScenario *OCSFFinding
+	scenarioStarted bool
+	startTime       time.Time
 }
 
 // OCSFFinding represents a single OCSF finding/result
 type OCSFFinding struct {
-	Message      string                 `json:"message"`
-	Metadata     OCSFMetadata           `json:"metadata"`
-	SeverityID   int                    `json:"severity_id"`
-	Severity     string                 `json:"severity"`
-	Status       string                 `json:"status"`
-	StatusCode   string                 `json:"status_code"`
-	StatusDetail string                 `json:"status_detail"`
-	StatusID     int                    `json:"status_id"`
-	Unmapped     OCSFUnmapped           `json:"unmapped"`
-	ActivityName string                 `json:"activity_name"`
-	ActivityID   int                    `json:"activity_id"`
-	FindingInfo  OCSFFindingInfo        `json:"finding_info"`
-	CategoryName string                 `json:"category_name"`
-	CategoryUID  int                    `json:"category_uid"`
-	ClassName    string                 `json:"class_name"`
-	ClassUID     int                    `json:"class_uid"`
-	Time         int64                  `json:"time"`
-	TimeDT       string                 `json:"time_dt"`
-	TypeUID      int                    `json:"type_uid"`
-	TypeName     string                 `json:"type_name"`
+	Message      string          `json:"message"`
+	Metadata     OCSFMetadata    `json:"metadata"`
+	SeverityID   int             `json:"severity_id"`
+	Severity     string          `json:"severity"`
+	Status       string          `json:"status"`
+	StatusCode   string          `json:"status_code"`
+	StatusDetail string          `json:"status_detail"`
+	StatusID     int             `json:"status_id"`
+	Unmapped     OCSFUnmapped    `json:"unmapped"`
+	ActivityName string          `json:"activity_name"`
+	ActivityID   int             `json:"activity_id"`
+	FindingInfo  OCSFFindingInfo `json:"finding_info"`
+	CategoryName string          `json:"category_name"`
+	CategoryUID  int             `json:"category_uid"`
+	ClassName    string          `json:"class_name"`
+	ClassUID     int             `json:"class_uid"`
+	Time         int64           `json:"time"`
+	TimeDT       string          `json:"time_dt"`
+	TypeUID      int             `json:"type_uid"`
+	TypeName     string          `json:"type_name"`
 }
 
 // OCSFMetadata represents the metadata section
 type OCSFMetadata struct {
-	EventCode string       `json:"event_code"`
-	Product   OCSFProduct  `json:"product"`
-	Profiles  []string     `json:"profiles"`
-	Version   string       `json:"version"`
+	EventCode string      `json:"event_code"`
+	Product   OCSFProduct `json:"product"`
+	Profiles  []string    `json:"profiles"`
+	Version   string      `json:"version"`
 }
 
 // OCSFProduct represents the product information
@@ -220,4 +220,3 @@ func OCSFFormatterFunc(suite string, out io.Writer) formatters.Formatter {
 		findings: make([]OCSFFinding, 0),
 	}
 }
-

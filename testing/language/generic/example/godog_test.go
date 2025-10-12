@@ -88,11 +88,10 @@ func TestGodogFeatures(t *testing.T) {
 	}
 	defer htmlFile.Close()
 
-	// Register the HTML formatter
-	godog.Format("html", "HTML report", reporters.FormatterFunc)
+	godog.Format("html", "HTML report", reporters.HTMLFormatterFunc)
 
 	opts := godog.Options{
-		Format:   "html",
+		Format:   "html:cucumber-report.html",
 		Output:   htmlFile,
 		Paths:    []string{"features"},
 		TestingT: t,

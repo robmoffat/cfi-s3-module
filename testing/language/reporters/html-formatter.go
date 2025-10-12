@@ -345,8 +345,8 @@ func (f *HTMLFormatter) generateHTML() string {
 	)
 }
 
-// FormatterFunc creates a new HTML formatter
-func FormatterFunc(suite string, out io.Writer) formatters.Formatter {
+// HTMLFormatterFunc creates a new HTML formatter
+func HTMLFormatterFunc(suite string, out io.Writer) formatters.Formatter {
 	f := &HTMLFormatter{
 		out:          out,
 		title:        suite,

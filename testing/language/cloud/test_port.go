@@ -88,14 +88,11 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 
 	// Create HTML output file
 	htmlReportPath := reportPath + ".html"
-	htmlFile, err := os.Create(htmlReportPath)
-	if err != nil {
-		t.Fatalf("Failed to create %s: %v", htmlReportPath, err)
-	}
-	defer htmlFile.Close()
+	ocsfReportPath := reportPath + ".ocsf.json"
 
-	// Register the HTML formatter
-	godog.Format("html", "HTML report", reporters.FormatterFunc)
+	// Register formatters
+	godog.Format("html", "HTML report", reporters.HTMLFormatterFunc)
+	godog.Format("ocsf", "OCSF report", reporters.OCSFFormatterFunc)
 
 	// Build tag filter based on protocol
 	tagFilter := buildTagFilter(params.Protocol)
@@ -105,8 +102,7 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	reportTitle := "Port Test Report: " + params.HostName + ":" + params.PortNumber + " (" + params.Protocol + ")"
 
 	opts := godog.Options{
-		Format:   "html",
-		Output:   htmlFile,
+		Format:   "html:" + htmlReportPath + ",ocsf:" + ocsfReportPath,
 		Paths:    []string{featuresPath},
 		Tags:     tagFilter,
 		TestingT: t,
