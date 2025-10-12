@@ -26,16 +26,8 @@ func NewTestSuite() *TestSuite {
 	}
 }
 
-// PortTestParams holds the parameters for port testing
-type PortTestParams struct {
-	PortNumber  string
-	HostName    string
-	Protocol    string
-	ServiceType string
-}
-
 // Setup method called before each scenario with provided parameters
-func (suite *TestSuite) setupWithParams(params PortTestParams) {
+func (suite *TestSuite) setupWithParams(params reporters.PortTestParams) {
 	// Don't reset CloudWorld - just reset Props
 	// This ensures step registrations remain valid
 	suite.Props = make(map[string]interface{})
@@ -48,7 +40,7 @@ func (suite *TestSuite) setupWithParams(params PortTestParams) {
 }
 
 // InitializeScenarioWithParams initializes the scenario context with custom parameters
-func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext, params PortTestParams) {
+func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext, params reporters.PortTestParams) {
 	// Setup before each scenario
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		suite.setupWithParams(params)
@@ -78,7 +70,7 @@ func buildTagFilter(protocol string) string {
 }
 
 // RunPortTests runs godog tests for a specific port configuration
-func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath string) {
+func RunPortTests(t *testing.T, params reporters.PortTestParams, featuresPath, reportPath string) {
 	suite := NewTestSuite()
 
 	// Create output directory if it doesn't exist
@@ -90,9 +82,12 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	htmlReportPath := reportPath + ".html"
 	ocsfReportPath := reportPath + ".ocsf.json"
 
+	// Create formatter factory with test parameters
+	factory := reporters.NewFormatterFactory(params)
+
 	// Register formatters
-	godog.Format("html", "HTML report", reporters.HTMLFormatterFunc)
-	godog.Format("ocsf", "OCSF report", reporters.OCSFFormatterFunc)
+	godog.Format("html", "HTML report", factory.GetHTMLFormatterFunc())
+	godog.Format("ocsf", "OCSF report", factory.GetOCSFFormatterFunc())
 
 	// Build tag filter based on protocol
 	tagFilter := buildTagFilter(params.Protocol)

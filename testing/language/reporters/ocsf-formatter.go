@@ -18,6 +18,7 @@ type OCSFFormatter struct {
 	currentScenario *OCSFFinding
 	scenarioStarted bool
 	startTime       time.Time
+	params          *PortTestParams // Optional test parameters
 }
 
 // OCSFFinding represents a single OCSF finding/result
@@ -231,10 +232,11 @@ func (f *OCSFFormatter) Pending(pickle *messages.Pickle, step *messages.PickleSt
 	}
 }
 
-// OCSFFormatterFunc creates a new OCSF formatter
-func OCSFFormatterFunc(suite string, out io.Writer) formatters.Formatter {
+// NewOCSFFormatterWithParams creates a new OCSF formatter with test parameters
+func NewOCSFFormatterWithParams(suite string, out io.Writer, params PortTestParams) formatters.Formatter {
 	return &OCSFFormatter{
 		out:      out,
 		findings: make([]OCSFFinding, 0),
+		params:   &params,
 	}
 }

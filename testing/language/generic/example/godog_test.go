@@ -88,7 +88,10 @@ func TestGodogFeatures(t *testing.T) {
 	}
 	defer htmlFile.Close()
 
-	godog.Format("html", "HTML report", reporters.HTMLFormatterFunc)
+	// Create formatter factory with empty parameters for generic tests
+	factory := reporters.NewFormatterFactory(reporters.PortTestParams{})
+
+	godog.Format("html", "HTML report", factory.GetHTMLFormatterFunc())
 
 	opts := godog.Options{
 		Format:   "html:cucumber-report.html",

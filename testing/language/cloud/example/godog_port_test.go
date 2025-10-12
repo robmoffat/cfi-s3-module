@@ -5,6 +5,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/cloud"
+	"github.com/finos-labs/ccc-cfi-compliance/testing/language/reporters"
 )
 
 // Global function for godog CLI (required by godog)
@@ -17,13 +18,13 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 // Test matrix for different protocols over secure and plaintext ports
 var portTestMatrix = []struct {
 	name        string
-	params      cloud.PortTestParams
+	params      reporters.PortTestParams
 	description string
 }{
 	// HTTPS - Secure
 	{
 		name: "HTTPS_Secure",
-		params: cloud.PortTestParams{
+		params: reporters.PortTestParams{
 			PortNumber:  "443",
 			HostName:    "robmoff.at",
 			Protocol:    "http",
@@ -34,7 +35,7 @@ var portTestMatrix = []struct {
 	// HTTP - Plaintext
 	{
 		name: "HTTP_Plaintext",
-		params: cloud.PortTestParams{
+		params: reporters.PortTestParams{
 			PortNumber:  "80",
 			HostName:    "robmoff.at",
 			Protocol:    "http",
@@ -45,7 +46,7 @@ var portTestMatrix = []struct {
 	// SSH - Secure
 	{
 		name: "SSH_Secure",
-		params: cloud.PortTestParams{
+		params: reporters.PortTestParams{
 			PortNumber:  "22",
 			HostName:    "172.104.252.249", // automation.risk-first.org, change later.
 			Protocol:    "ssh",
@@ -56,7 +57,7 @@ var portTestMatrix = []struct {
 	// SMTP - Secure (SMTPS)
 	{
 		name: "SMTPS_Secure",
-		params: cloud.PortTestParams{
+		params: reporters.PortTestParams{
 			PortNumber:  "465",
 			HostName:    "secure.emailsrvr.com",
 			Protocol:    "smtp",
@@ -67,7 +68,7 @@ var portTestMatrix = []struct {
 	// SMTP - Plaintext with STARTTLS
 	{
 		name: "SMTP_STARTTLS",
-		params: cloud.PortTestParams{
+		params: reporters.PortTestParams{
 			PortNumber:  "587",
 			HostName:    "secure.emailsrvr.com",
 			Protocol:    "smtp",
