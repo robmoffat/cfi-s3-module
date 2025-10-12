@@ -8,11 +8,11 @@ Feature: CCC.ObjStor.C01.TR03
     Given a cloud api for "{provider}" in "api"
     And I call "{api}" with "GetServiceAPI" with parameter "object-storage"
     And I refer to "{result}" as "storage"
+    And I call "{api}" with "GetIAMService"
+    And I refer to "{result}" as "iamService"
 
   Scenario: Service prevents creating bucket with untrusted KMS key
-    Given I call "{api}" with "GetIAMService"
-    And I refer to "{result}" as "iamService"
-    And I call "{iamService}" with "ProvisionUser" with parameter "test-user-untrusted"
+    Given I call "{iamService}" with "ProvisionUser" with parameter "test-user-untrusted"
     And I refer to "{result}" as "testUser"
     And I call "{iamService}" with "SetAccess" with parameters "{testUser}", "{uid}" and "write"
     And I call "{api}" with "GetServiceAPIWithIdentity" with parameters "object-storage" and "{testUser}"
@@ -22,9 +22,7 @@ Feature: CCC.ObjStor.C01.TR03
     And I call "{iamService}" with "DestroyUser" with parameter "{testUser}"
 
   Scenario: Service allows creating bucket with trusted KMS key
-    Given I call "{api}" with "GetIAMService"
-    And I refer to "{result}" as "iamService"
-    And I call "{iamService}" with "ProvisionUser" with parameter "test-user-trusted"
+    Given I call "{iamService}" with "ProvisionUser" with parameter "test-user-trusted"
     And I refer to "{result}" as "testUser"
     And I call "{iamService}" with "SetAccess" with parameters "{testUser}", "{uid}" and "write"
     And I call "{api}" with "GetServiceAPIWithIdentity" with parameters "object-storage" and "{testUser}"

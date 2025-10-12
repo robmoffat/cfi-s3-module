@@ -22,6 +22,12 @@ func NewFormatterFactory(params TestParams) *FormatterFactory {
 	}
 }
 
+// UpdateParams updates the test parameters for this factory
+// Call this before running each test to ensure formatters use the correct params
+func (ff *FormatterFactory) UpdateParams(params TestParams) {
+	ff.params = params
+}
+
 // GetHTMLFormatterFunc returns a configured HTML formatter function
 func (ff *FormatterFactory) GetHTMLFormatterFunc() func(string, io.Writer) formatters.Formatter {
 	return func(suite string, out io.Writer) formatters.Formatter {

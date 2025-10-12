@@ -61,6 +61,16 @@ func (suite *TestSuite) InitializeServiceScenario(ctx *godog.ScenarioContext, pa
 	suite.RegisterSteps(ctx)
 }
 
+// Global formatter factory that will be updated with params before each test
+var serviceFormatterFactory *reporters.FormatterFactory
+
+func init() {
+	// Initialize factory once and register formatters globally
+	serviceFormatterFactory = reporters.NewFormatterFactory(reporters.TestParams{})
+	godog.Format("html-service", "HTML report for service tests", serviceFormatterFactory.GetHTMLFormatterFunc())
+	godog.Format("ocsf-service", "OCSF report for service tests", serviceFormatterFactory.GetOCSFFormatterFunc())
+}
+
 // RunServiceTests runs godog tests for a specific service configuration
 func RunServiceTests(t *testing.T, params reporters.TestParams, featuresPath, reportPath string) {
 	suite := NewTestSuite()
@@ -75,12 +85,8 @@ func RunServiceTests(t *testing.T, params reporters.TestParams, featuresPath, re
 	htmlReportPath := reportPath + ".html"
 	ocsfReportPath := reportPath + ".ocsf.json"
 
-	// Create formatter factory with test parameters
-	factory := reporters.NewFormatterFactory(params)
-
-	// Register formatters
-	godog.Format("html", "HTML report", factory.GetHTMLFormatterFunc())
-	godog.Format("ocsf", "OCSF report", factory.GetOCSFFormatterFunc())
+	// Update factory with current test parameters before running
+	serviceFormatterFactory.UpdateParams(params)
 
 	// Build tag filter based on catalog type
 	tagFilter := buildServiceTagFilter(params.CatalogType)
@@ -90,7 +96,7 @@ func RunServiceTests(t *testing.T, params reporters.TestParams, featuresPath, re
 	reportTitle := "Service Test Report: " + params.ResourceName + " (" + params.CatalogType + " / " + params.ProviderServiceType + ")"
 
 	opts := godog.Options{
-		Format:   fmt.Sprintf("html:%s,ocsf:%s", htmlReportPath, ocsfReportPath),
+		Format:   fmt.Sprintf("html-service:%s,ocsf-service:%s", htmlReportPath, ocsfReportPath),
 		Paths:    []string{featuresPath},
 		Tags:     tagFilter,
 		TestingT: nil, // Don't use TestingT to allow proper file output

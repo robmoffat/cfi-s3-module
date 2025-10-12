@@ -8,11 +8,11 @@ Feature: CCC.ObjStor.C01.TR02
     Given a cloud api for "{provider}" in "api"
     And I call "{api}" with "GetServiceAPI" with parameter "object-storage"
     And I refer to "{result}" as "storage"
+    And I call "{api}" with "GetIAMService"
+    And I refer to "{result}" as "iamService"
 
   Scenario: Service prevents reading object with untrusted KMS key
-    Given I call "{api}" with "GetIAMService"
-    And I refer to "{result}" as "iamService"
-    And I call "{iamService}" with "ProvisionUser" with parameter "test-user-untrusted"
+    Given I call "{iamService}" with "ProvisionUser" with parameter "test-user-untrusted"
     And I refer to "{result}" as "testUser"
     And I call "{iamService}" with "SetAccess" with parameters "{testUser}", "{uid}" and "read"
     And I call "{api}" with "GetServiceAPIWithIdentity" with parameters "object-storage" and "{testUser}"
@@ -27,9 +27,7 @@ Feature: CCC.ObjStor.C01.TR02
     And I call "{storage}" with "DeleteBucket" with parameter "{bucket.ID}"
 
   Scenario: Service allows reading object with trusted KMS key
-    Given I call "{api}" with "GetIAMService"
-    And I refer to "{result}" as "iamService"
-    And I call "{iamService}" with "ProvisionUser" with parameter "test-user-trusted"
+    Given I call "{iamService}" with "ProvisionUser" with parameter "test-user-trusted"
     And I refer to "{result}" as "testUser"
     And I call "{iamService}" with "SetAccess" with parameters "{testUser}", "{uid}" and "read"
     And I call "{api}" with "GetServiceAPIWithIdentity" with parameters "object-storage" and "{testUser}"
