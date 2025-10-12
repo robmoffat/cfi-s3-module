@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 
@@ -253,6 +254,19 @@ func formatStepArgument(arg *messages.PickleStepArgument) string {
 	return buf.String()
 }
 
+// addSpacesToCamelCase converts camel case to space-separated words
+// e.g., "PortNumber" -> "Port Number"
+func addSpacesToCamelCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune(' ')
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
+}
+
 // formatAttachments renders attachments as HTML
 func formatAttachments(attachments []Attachment) string {
 	if len(attachments) == 0 {
@@ -292,6 +306,57 @@ func (f *HTMLFormatter) generateHTML() string {
 	totalRunTime := f.stats.endTime.Sub(f.stats.startTime)
 	passedScenarios := f.stats.totalScenarios - f.stats.failedScenarios
 
+	// Generate test parameters table if params are available
+	paramsTable := ""
+	if f.params != nil && (f.params.HostName != "" || f.params.UID != "") {
+		var tableRows strings.Builder
+
+		// Use reflection to iterate through struct fields
+		v := reflect.ValueOf(*f.params)
+		t := v.Type()
+
+		for i := 0; i < v.NumField(); i++ {
+			field := t.Field(i)
+			value := v.Field(i)
+
+			// Format the field name (add spaces between camel case)
+			fieldName := addSpacesToCamelCase(field.Name)
+
+			// Format the value based on its type
+			var valueStr string
+			switch value.Kind() {
+			case reflect.Slice:
+				// Handle slice types (like Labels)
+				if value.Len() > 0 {
+					items := make([]string, value.Len())
+					for j := 0; j < value.Len(); j++ {
+						items[j] = fmt.Sprintf("%v", value.Index(j).Interface())
+					}
+					valueStr = strings.Join(items, ", ")
+				} else {
+					valueStr = ""
+				}
+			default:
+				valueStr = fmt.Sprintf("%v", value.Interface())
+			}
+
+			// Only add non-empty values
+			if valueStr != "" {
+				tableRows.WriteString(fmt.Sprintf("<tr><th>%s</th><td>%s</td></tr>", fieldName, valueStr))
+			}
+		}
+
+		if tableRows.Len() > 0 {
+			paramsTable = fmt.Sprintf(`
+        <div class="test-params">
+            <h2>Test Parameters</h2>
+            <table class="params-table">
+                %s
+            </table>
+        </div>`, tableRows.String())
+		}
+	}
+
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
@@ -302,6 +367,10 @@ func (f *HTMLFormatter) generateHTML() string {
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }
         .summary { background: #e8f5e9; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .test-params { background: #e3f2fd; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .params-table { width: 100%%; border-collapse: collapse; margin-top: 10px; }
+        .params-table th { text-align: left; padding: 8px; background: #2196F3; color: white; width: 30%%; }
+        .params-table td { padding: 8px; border-bottom: 1px solid #ddd; }
         .feature { margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
         .feature-header { background: #2196F3; color: white; padding: 10px; cursor: pointer; }
         .scenario { margin: 10px; padding: 10px; background:rgba(249, 249, 249, 0.41); border-left: 4px solid #2196F3; }
@@ -317,6 +386,7 @@ func (f *HTMLFormatter) generateHTML() string {
 <body>
     <div class="container">
         <h1>🥒 %s</h1>
+        %s
         <div class="summary">
             <h2>Summary</h2>
             <p>Generated: %s</p>
@@ -331,6 +401,7 @@ func (f *HTMLFormatter) generateHTML() string {
 </html>`,
 		f.title,
 		f.title,
+		paramsTable,
 		f.stats.startTime.Format("2006-01-02 15:04:05"),
 		formatDuration(totalRunTime),
 		f.stats.totalFeatures,
