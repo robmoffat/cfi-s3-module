@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -37,11 +38,15 @@ func (suite *TestSuite) setupServiceParams(params reporters.TestParams) {
 	// This ensures step registrations remain valid
 	suite.Props = make(map[string]interface{})
 
-	// Setup pre-configured variables for @PerService tests
-	suite.Props["hostName"] = params.HostName
-	suite.Props["serviceType"] = params.ServiceType // Deprecated, use providerServiceType or catalogType
-	suite.Props["providerServiceType"] = params.ProviderServiceType
-	suite.Props["catalogType"] = params.CatalogType
+	// Use reflection to automatically populate all fields from TestParams
+	v := reflect.ValueOf(params)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+		suite.Props[field.Name] = value.Interface()
+	}
 }
 
 // InitializeServiceScenario initializes the scenario context for service testing

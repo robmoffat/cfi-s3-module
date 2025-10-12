@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -34,11 +35,15 @@ func (suite *TestSuite) setupWithParams(params reporters.TestParams) {
 	// This ensures step registrations remain valid
 	suite.Props = make(map[string]interface{})
 
-	// Setup pre-configured variables for @PerPort tests
-	suite.Props["portNumber"] = params.PortNumber
-	suite.Props["hostName"] = params.HostName
-	suite.Props["protocol"] = params.Protocol
-	suite.Props["serviceType"] = params.ServiceType
+	// Use reflection to automatically populate all fields from TestParams
+	v := reflect.ValueOf(params)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+		suite.Props[field.Name] = value.Interface()
+	}
 }
 
 // InitializeScenarioWithParams initializes the scenario context with custom parameters

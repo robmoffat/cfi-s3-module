@@ -5,7 +5,7 @@ Feature: CCC.ObjStor.C01.TR01
   So that data encryption integrity and availability are protected against unauthorized encryption
 
   Background:
-    Given a cloud api for "{provider}" in "api"
+    Given a cloud api for "{Provider}" in "api"
     And I call "{api}" with "GetServiceAPI" with parameter "object-storage"
     And I refer to "{result}" as "storage"
 
