@@ -122,6 +122,8 @@ Given "report" contains details of SSL Support type "X" for "{hostName}" on port
 This uses the `testssl.sh` project to return a JSON report about the SSL details on a specific port.  
 Add STARTTLS if you wish to connect to a plaintext port and use TLS over it.
 
+**Note:** The complete JSON report from testssl.sh is automatically attached to the test results and can be viewed in the HTML report.
+
 ### Types
 
 | Test Type           | Flag                  | Description                                                               |

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/generic"
-	htmlreporter "github.com/finos-labs/ccc-cfi-compliance/testing/language/html-reporter"
+	"github.com/finos-labs/ccc-cfi-compliance/testing/language/reporters"
 )
 
 // TestSuite for running godog features
@@ -89,7 +89,7 @@ func TestGodogFeatures(t *testing.T) {
 	defer htmlFile.Close()
 
 	// Register the HTML formatter
-	godog.Format("html", "HTML report", htmlreporter.FormatterFunc)
+	godog.Format("html", "HTML report", reporters.FormatterFunc)
 
 	opts := godog.Options{
 		Format:   "html",

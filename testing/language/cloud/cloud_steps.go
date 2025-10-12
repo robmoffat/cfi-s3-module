@@ -318,7 +318,7 @@ func (cw *CloudWorld) runTestSSL(reportName, testType, hostName, port string, us
 	}
 
 	// Read and parse JSON output
-	jsonData, err := exec.Command("cat", tempFile).Output()
+	jsonData, err := os.ReadFile(tempFile)
 	if err != nil {
 		return fmt.Errorf("failed to read testssl.sh output: %v", err)
 	}
@@ -329,6 +329,14 @@ func (cw *CloudWorld) runTestSSL(reportName, testType, hostName, port string, us
 	}
 
 	cw.Props[fmt.Sprintf("%v", reportNameResolved)] = report
+
+	// Attach the JSON report for viewing in test results
+	attachmentName := fmt.Sprintf("testssl_%v_%v_%v.json", testTypeResolved, hostResolved, portResolved)
+	if useSTARTTLS {
+		attachmentName = fmt.Sprintf("testssl_%v_%v_%v_starttls.json", testTypeResolved, hostResolved, portResolved)
+	}
+	cw.Attach(attachmentName, "application/json", jsonData)
+
 	return nil
 }
 

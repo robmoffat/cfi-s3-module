@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cucumber/godog"
-	htmlreporter "github.com/finos-labs/ccc-cfi-compliance/testing/language/html-reporter"
+	"github.com/finos-labs/ccc-cfi-compliance/testing/language/reporters"
 )
 
 // All known protocols for tag filtering
@@ -95,7 +95,7 @@ func RunPortTests(t *testing.T, params PortTestParams, featuresPath, reportPath 
 	defer htmlFile.Close()
 
 	// Register the HTML formatter
-	godog.Format("html", "HTML report", htmlreporter.FormatterFunc)
+	godog.Format("html", "HTML report", reporters.FormatterFunc)
 
 	// Build tag filter based on protocol
 	tagFilter := buildTagFilter(params.Protocol)

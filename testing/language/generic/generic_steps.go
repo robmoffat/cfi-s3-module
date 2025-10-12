@@ -97,11 +97,19 @@ func (atm *AsyncTaskManager) GetTaskResult(name string) (interface{}, error) {
 	}
 }
 
+// Attachment represents a file or data attached to a test
+type Attachment struct {
+	Name      string
+	MediaType string
+	Data      []byte
+}
+
 // PropsWorld represents the test context equivalent to TypeScript PropsWorld
 type PropsWorld struct {
 	Props        map[string]interface{}
 	T            TestingT // Interface for assertions
 	AsyncManager *AsyncTaskManager
+	Attachments  []Attachment // Store attachments for the current scenario
 	mutex        sync.RWMutex
 }
 
@@ -116,7 +124,20 @@ func NewPropsWorld() *PropsWorld {
 	return &PropsWorld{
 		Props:        make(map[string]interface{}),
 		AsyncManager: NewAsyncTaskManager(),
+		Attachments:  make([]Attachment, 0),
 	}
+}
+
+// Attach adds an attachment to the current scenario
+func (pw *PropsWorld) Attach(name, mediaType string, data []byte) {
+	pw.mutex.Lock()
+	defer pw.mutex.Unlock()
+	pw.Attachments = append(pw.Attachments, Attachment{
+		Name:      name,
+		MediaType: mediaType,
+		Data:      data,
+	})
+	fmt.Printf("📎 Attached: %s (%s, %d bytes)\n", name, mediaType, len(data))
 }
 
 // formatValueForComparison formats a value for display in comparisons

@@ -1,5 +1,5 @@
 @PerPort @ssh @tlp-clear @tlp-green @tlp-amber @tlp-red
-Feature: CCC.Core.C01.TR02 - Encrypt Data for Transmission - SSH v2 for SSH Traffic
+Feature: CCC.Core.C01.TR02
   As a security administrator
   I want to ensure all SSH network traffic uses SSHv2 or higher
   So that SSH connections are properly encrypted and secure

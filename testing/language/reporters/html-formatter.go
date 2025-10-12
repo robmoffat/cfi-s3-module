@@ -1,14 +1,23 @@
-package htmlreporter
+package reporters
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/cucumber/godog/formatters"
 	messages "github.com/cucumber/messages/go/v21"
 )
+
+// Attachment represents a file or data attached to the report
+type Attachment struct {
+	Name      string
+	MediaType string
+	Data      []byte
+}
 
 // HTMLFormatter is a godog formatter that generates HTML reports
 type HTMLFormatter struct {
@@ -27,10 +36,12 @@ type HTMLFormatter struct {
 		skippedSteps    int
 		undefinedSteps  int
 	}
-	bodyBuffer     bytes.Buffer
-	scenarioOpened bool
-	featureOpened  bool
-	stepKeywords   map[string]string // Maps step AST node IDs to their keywords (Given/When/Then/And/But)
+	bodyBuffer      bytes.Buffer
+	scenarioOpened  bool
+	featureOpened   bool
+	stepKeywords    map[string]string // Maps step AST node IDs to their keywords (Given/When/Then/And/But)
+	attachments     []Attachment      // Store attachments for current scenario
+	scenarioContext interface{}       // Store scenario context to access attachments
 }
 
 // Feature captures feature information
@@ -238,6 +249,40 @@ func formatStepArgument(arg *messages.PickleStepArgument) string {
 		buf.WriteString(fmt.Sprintf(`<pre class="doc-string" style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-left: 4px solid #ddd;">%s</pre>`, arg.DocString.Content))
 	}
 
+	return buf.String()
+}
+
+// formatAttachments renders attachments as HTML
+func formatAttachments(attachments []Attachment) string {
+	if len(attachments) == 0 {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString(`<div class="attachments" style="margin: 10px 0;">`)
+	buf.WriteString(`<strong>📎 Attachments:</strong>`)
+
+	for _, att := range attachments {
+		buf.WriteString(`<div class="attachment" style="margin: 10px 0; padding: 10px; background: #f9f9f9; border-left: 4px solid #2196F3;">`)
+		buf.WriteString(fmt.Sprintf(`<div style="font-weight: bold; margin-bottom: 5px;">%s</div>`, att.Name))
+
+		// Handle different media types
+		if strings.HasPrefix(att.MediaType, "image/") {
+			// Embed images as base64
+			encoded := base64.StdEncoding.EncodeToString(att.Data)
+			buf.WriteString(fmt.Sprintf(`<img src="data:%s;base64,%s" style="max-width: 100%%; border: 1px solid #ddd;" />`, att.MediaType, encoded))
+		} else if att.MediaType == "application/json" {
+			// Pretty-print JSON in a collapsible section
+			buf.WriteString(fmt.Sprintf(`<details style="margin-top: 5px;"><summary style="cursor: pointer; font-weight: bold;">View JSON (%d bytes)</summary><pre style="margin: 5px 0; padding: 10px; background: #fff; border: 1px solid #ddd; overflow-x: auto; max-height: 400px;">%s</pre></details>`, len(att.Data), string(att.Data)))
+		} else {
+			// For other types, provide download info
+			buf.WriteString(fmt.Sprintf(`<div style="color: #666;">Type: %s, Size: %d bytes</div>`, att.MediaType, len(att.Data)))
+		}
+
+		buf.WriteString(`</div>`)
+	}
+
+	buf.WriteString(`</div>`)
 	return buf.String()
 }
 

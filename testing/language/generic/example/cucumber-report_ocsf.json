@@ -1,0 +1,50 @@
+[
+    {
+        "message": "Timing operations",
+        "metadata": {
+            "event_code": "ccc_compliance_test",
+            "product": {
+                "name": "CCC-Destructive",
+                "uid": "CCC-Destructive",
+                "vendor_name": "FINOS",
+                "version": "0.1"
+            },
+            "profiles": [
+                "cloud",
+                "datetime"
+            ],
+            "version": "1.4.0"
+        },
+        "severity_id": 1,
+        "severity": "Informational",
+        "status": "New",
+        "status_code": "PASS",
+        "status_detail": "",
+        "status_id": 1,
+        "unmapped": {
+            "compliance": {
+                "CCC": [
+                    "Other test patterns"
+                ]
+            }
+        },
+        "activity_name": "Test",
+        "activity_id": 1,
+        "finding_info": {
+            "created_time": 1760273741,
+            "created_time_dt": "2025-10-12T13:55:41+01:00",
+            "desc": "Compliance test scenario: Timing operations",
+            "title": "Timing operations",
+            "types": [],
+            "uid": "ccc-test-501-1760273741"
+        },
+        "category_name": "Findings",
+        "category_uid": 2,
+        "class_name": "Compliance Finding",
+        "class_uid": 2004,
+        "time": 1760273741,
+        "time_dt": "2025-10-12T13:55:41+01:00",
+        "type_uid": 200401,
+        "type_name": "Compliance Finding: Test"
+    }
+]
