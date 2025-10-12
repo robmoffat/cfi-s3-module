@@ -1,4 +1,8 @@
-package generic
+package objstorage
+
+import (
+	"github.com/finos-labs/ccc-cfi-compliance/testing/api/generic"
+)
 
 // Bucket represents a storage bucket/container
 type Bucket struct {
@@ -16,15 +20,16 @@ type Object struct {
 	Data     []string // Object content (for small objects)
 }
 
-// ObjectStorageService provides operations for object storage testing
+// Service provides operations for object storage testing
 // This interface abstracts S3, Azure Blob Storage, and GCS operations
-type ObjectStorageService interface {
-	Service // Extends the base Service interface
+type Service interface {
+	generic.Service // Extends the base Service interface
 
 	// Bucket operations
 	ListBuckets() ([]Bucket, error)
 	CreateBucket(bucketID string) (*Bucket, error)
 	DeleteBucket(bucketID string) error
+	GetBucketRegion(bucketID string) (string, error)
 
 	// Object operations
 	ListObjects(bucketID string) ([]Object, error)

@@ -29,6 +29,19 @@ Where a test is `@PerService`:
 - `providerServiceType` e.g. s3, rds, Microsoft.Storage/storageAccounts
 - `catalogType` e.g. CCC.ObjStor, CCC.RDMS, CCC.VM
 
+## Initialize Cloud API
+
+```gherkin
+Given a cloud api for "{Provider}" in "{api}"
+```
+
+Initializes a cloud API factory for the specified provider and stores it with the given name.
+
+**Parameters:**
+
+- `{Provider}`: Cloud provider name (must be: `aws`, `azure`, or `gcp`)
+- `{api}`: A name to reference this API instance in subsequent steps
+
 ## Connections
 
 Many of the below steps allow you to create a connection. They will store this in "result", which you can access from "{result}" in the usual way. Connections have the following properties:

@@ -24,15 +24,6 @@ type Factory interface {
 	// GetServiceAPIWithIdentity returns a service API client authenticated as the given identity
 	GetServiceAPIWithIdentity(serviceID string, identity *iam.Identity) (generic.Service, error)
 
-	// GetIAMService returns the IAM service for managing identities and access
-	GetIAMService() (iam.IAMService, error)
-
-	// GetObjectStorageService returns an object storage service for the given service ID
-	GetObjectStorageService(serviceID string) (generic.ObjectStorageService, error)
-
-	// GetObjectStorageServiceWithIdentity returns an object storage service authenticated as the given identity
-	GetObjectStorageServiceWithIdentity(serviceID string, identity *iam.Identity) (generic.ObjectStorageService, error)
-
 	// GetProvider returns the cloud provider this factory is configured for
 	GetProvider() CloudProvider
 }

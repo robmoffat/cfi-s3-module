@@ -15,11 +15,11 @@ type IAMService interface {
 	// Returns the created Identity with credentials
 	ProvisionUser(userName string) (*Identity, error)
 
-	// SetAccess grants a user access to a specific service at the specified level
+	// SetAccess grants an identity access to a specific service at the specified level
 	// serviceID is the cloud service identifier (ARN, resource ID, etc.)
 	// level specifies the access level: "read", "write", or "admin"
-	SetAccess(userName string, serviceID string, level AccessLevel) error
+	SetAccess(identity *Identity, serviceID string, level AccessLevel) error
 
 	// DestroyUser removes the identity and all associated access
-	DestroyUser(userName string) error
+	DestroyUser(identity *Identity) error
 }

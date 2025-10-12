@@ -5,6 +5,7 @@ import (
 
 	"github.com/finos-labs/ccc-cfi-compliance/testing/api/generic"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/api/iam"
+	"github.com/finos-labs/ccc-cfi-compliance/testing/api/object-storage"
 )
 
 // AzureFactory implements the Factory interface for Azure
@@ -39,6 +40,21 @@ func (f *AzureFactory) GetServiceAPIWithIdentity(serviceID string, identity *iam
 func (f *AzureFactory) GetIAMService() (iam.IAMService, error) {
 	// TODO: Implement Azure IAM service
 	return nil, fmt.Errorf("GetIAMService not yet implemented for Azure")
+}
+
+// GetObjectStorageService returns an Azure Blob Storage service for the given service ID
+func (f *AzureFactory) GetObjectStorageService(serviceID string) (objstorage.Service, error) {
+	// TODO: Implement Azure Blob Storage service creation
+	return nil, fmt.Errorf("GetObjectStorageService not yet implemented for Azure: %s", serviceID)
+}
+
+// GetObjectStorageServiceWithIdentity returns an Azure Blob Storage service authenticated as the given identity
+func (f *AzureFactory) GetObjectStorageServiceWithIdentity(serviceID string, identity *iam.Identity) (objstorage.Service, error) {
+	// TODO: Implement Azure Blob Storage service creation with specific identity
+	if identity.Provider != string(ProviderAzure) {
+		return nil, fmt.Errorf("identity is not for Azure provider: %s", identity.Provider)
+	}
+	return nil, fmt.Errorf("GetObjectStorageServiceWithIdentity not yet implemented for Azure: %s", serviceID)
 }
 
 // GetProvider returns the cloud provider

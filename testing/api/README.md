@@ -13,11 +13,12 @@ The factory pattern provides a consistent way to create cloud service clients:
 factory, err := factory.NewFactory(factory.ProviderAWS)
 
 // Get a service API client
-service, err := factory.GetServiceAPI("arn:aws:s3:::my-bucket")
+service, err := factory.GetServiceAPI("object-storage")
+service, err := factory.GetServiceAPI("iam")
 
 // Get a service API with a specific identity
 identity, err := iamService.ProvisionUser("test-user")
-service, err := factory.GetServiceAPIWithIdentity("service-id", identity)
+service, err := factory.GetServiceAPIWithIdentity("object-storage", identity)
 ```
 
 ### Generic Service Interface (`generic/`)
@@ -45,10 +46,6 @@ err = iamService.SetAccess("test-user", "service-id", iam.AccessLevelRead)
 // Remove the user
 err = iamService.DestroyUser("test-user")
 ```
-
-## Implementation Status
-
-All interfaces are defined and ready for implementation. The TODO items in each factory implementation need to be completed with actual cloud SDK integrations.
 
 ## Usage in Tests
 
