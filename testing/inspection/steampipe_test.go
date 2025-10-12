@@ -52,11 +52,9 @@ func TestGetAccessiblePorts(t *testing.T) {
 					t.Errorf("Port[%d].Region is empty", i)
 				}
 
-				// Log a sample port for debugging
-				if i == 0 {
-					t.Logf("Sample port: UID=%s, Port=%s, Protocol=%s, ServiceType=%s, Region=%s",
-						port.UID, port.PortNumber, port.Protocol, port.ServiceType, port.Region)
-				}
+				// Log all ports with detailed information
+				t.Logf("Port[%d]: UID=%s, Port=%s, Protocol=%s, ProviderServiceType=%s, CatalogType=%s, Region=%s, HostName=%s",
+					i, port.UID, port.PortNumber, port.Protocol, port.ProviderServiceType, port.CatalogType, port.Region, port.HostName)
 			}
 		})
 	}
@@ -116,11 +114,9 @@ func TestGetServices(t *testing.T) {
 					t.Logf("Note: Service[%d] has PortNumber=%s (expected to be empty)", i, svc.PortNumber)
 				}
 
-				// Log a sample service for debugging
-				if i == 0 {
-					t.Logf("Sample service: UID=%s, Type=%s, Endpoint=%s, Region=%s",
-						svc.UID, svc.ServiceType, svc.HostName, svc.Region)
-				}
+				// Log all services with detailed information
+				t.Logf("Service[%d]: UID=%s, ProviderServiceType=%s, CatalogType=%s, HostName=%s, Region=%s, Provider=%s, Labels=%v",
+					i, svc.UID, svc.ProviderServiceType, svc.CatalogType, svc.HostName, svc.Region, svc.Provider, svc.Labels)
 			}
 		})
 	}

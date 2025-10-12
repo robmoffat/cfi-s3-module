@@ -77,37 +77,16 @@ if [ "$PROVIDER" != "aws" ] && [ "$PROVIDER" != "azure" ] && [ "$PROVIDER" != "g
   exit 1
 fi
 
-# Check if Steampipe is running
-echo "🔍 Checking Steampipe connection..."
-if ! steampipe query "SELECT 1" > /dev/null 2>&1; then
-  echo "❌ Error: Steampipe is not running or not accessible"
-  echo "   Please start Steampipe with: steampipe service start"
-  exit 1
-fi
-echo "✅ Steampipe is running"
-echo ""
-
-# Build the Go test runner
-echo "🔨 Building test runner..."
-cd "$(dirname "$0")"
-go build -o run-tests ./runner/main.go
-echo "✅ Test runner built"
-echo ""
-
 # Run the tests
 echo "🚀 Running compliance tests..."
-./run-tests \
-  --provider "$PROVIDER" \
-  --output "$OUTPUT_DIR" \
-  --features "$FEATURES_PATH" \
-  --timeout "$TIMEOUT" \
+cd "$(dirname "$0")"
+go test -v ./runner \
+  -provider="$PROVIDER" \
+  -output="$OUTPUT_DIR" \
+  -features="$FEATURES_PATH" \
+  -timeout="$TIMEOUT" \
   $SKIP_PORTS \
   $SKIP_SERVICES
 
-exit_code=$?
-
-# Cleanup
-rm -f run-tests
-
-exit $exit_code
+exit $?
 
