@@ -22,7 +22,7 @@ func NewAWSFactory() *AWSFactory {
 }
 
 // GetServiceAPI returns a generic service API client for the given AWS service ARN
-func (f *AWSFactory) GetServiceAPI(serviceID string) (generic.Service, error) {
+func (f *AWSFactory) GetServiceAPI(serviceType string) (generic.Service, error) {
 	// TODO: Implement AWS service client creation
 	return nil, fmt.Errorf("GetServiceAPI not yet implemented for AWS: %s", serviceID)
 }
