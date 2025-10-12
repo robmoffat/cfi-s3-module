@@ -170,14 +170,23 @@ func (f *OCSFFormatter) Defined(pickle *messages.Pickle, step *messages.PickleSt
 
 // Passed is required by the formatters.Formatter interface
 func (f *OCSFFormatter) Passed(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
-	// Scenario remains in PASS state
+	// Append step to status detail
+	if f.currentScenario != nil {
+		if f.currentScenario.StatusDetail != "" {
+			f.currentScenario.StatusDetail += "\n"
+		}
+		f.currentScenario.StatusDetail += fmt.Sprintf("✓ %s", step.Text)
+	}
 }
 
 // Skipped is required by the formatters.Formatter interface
 func (f *OCSFFormatter) Skipped(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
 	if f.currentScenario != nil {
 		f.currentScenario.StatusCode = "SKIP"
-		f.currentScenario.StatusDetail = fmt.Sprintf("Scenario skipped at step: %s", step.Text)
+		if f.currentScenario.StatusDetail != "" {
+			f.currentScenario.StatusDetail += "\n"
+		}
+		f.currentScenario.StatusDetail += fmt.Sprintf("⊘ %s (skipped)", step.Text)
 	}
 }
 
@@ -187,7 +196,10 @@ func (f *OCSFFormatter) Undefined(pickle *messages.Pickle, step *messages.Pickle
 		f.currentScenario.StatusCode = "FAIL"
 		f.currentScenario.SeverityID = 3
 		f.currentScenario.Severity = "Medium"
-		f.currentScenario.StatusDetail = fmt.Sprintf("Undefined step: %s", step.Text)
+		if f.currentScenario.StatusDetail != "" {
+			f.currentScenario.StatusDetail += "\n"
+		}
+		f.currentScenario.StatusDetail += fmt.Sprintf("? %s (undefined)", step.Text)
 	}
 }
 
@@ -197,10 +209,13 @@ func (f *OCSFFormatter) Failed(pickle *messages.Pickle, step *messages.PickleSte
 		f.currentScenario.StatusCode = "FAIL"
 		f.currentScenario.SeverityID = 3
 		f.currentScenario.Severity = "Medium"
+		if f.currentScenario.StatusDetail != "" {
+			f.currentScenario.StatusDetail += "\n"
+		}
 		if err != nil {
-			f.currentScenario.StatusDetail = fmt.Sprintf("Step failed: %s - Error: %s", step.Text, err.Error())
+			f.currentScenario.StatusDetail += fmt.Sprintf("✗ %s - Error: %s", step.Text, err.Error())
 		} else {
-			f.currentScenario.StatusDetail = fmt.Sprintf("Step failed: %s", step.Text)
+			f.currentScenario.StatusDetail += fmt.Sprintf("✗ %s", step.Text)
 		}
 	}
 }
@@ -209,7 +224,10 @@ func (f *OCSFFormatter) Failed(pickle *messages.Pickle, step *messages.PickleSte
 func (f *OCSFFormatter) Pending(pickle *messages.Pickle, step *messages.PickleStep, def *formatters.StepDefinition) {
 	if f.currentScenario != nil {
 		f.currentScenario.StatusCode = "PENDING"
-		f.currentScenario.StatusDetail = fmt.Sprintf("Pending step: %s", step.Text)
+		if f.currentScenario.StatusDetail != "" {
+			f.currentScenario.StatusDetail += "\n"
+		}
+		f.currentScenario.StatusDetail += fmt.Sprintf("⋯ %s (pending)", step.Text)
 	}
 }
 
