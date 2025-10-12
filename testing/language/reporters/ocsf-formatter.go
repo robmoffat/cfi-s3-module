@@ -18,7 +18,7 @@ type OCSFFormatter struct {
 	currentScenario *OCSFFinding
 	scenarioStarted bool
 	startTime       time.Time
-	params          *PortTestParams // Optional test parameters
+	params          *TestParams // Optional test parameters
 }
 
 // OCSFFinding represents a single OCSF finding/result
@@ -43,6 +43,7 @@ type OCSFFinding struct {
 	TimeDT       string          `json:"time_dt"`
 	TypeUID      int             `json:"type_uid"`
 	TypeName     string          `json:"type_name"`
+	Resources    []OCSFResource  `json:"resources,omitempty"`
 }
 
 // OCSFMetadata represents the metadata section
@@ -76,6 +77,40 @@ type OCSFFindingInfo struct {
 	UID           string   `json:"uid"`
 }
 
+// OCSFResource represents a resource being tested
+type OCSFResource struct {
+	CloudPartition string            `json:"cloud_partition,omitempty"`
+	Region         string            `json:"region,omitempty"`
+	Data           OCSFResourceData  `json:"data"`
+	Group          OCSFResourceGroup `json:"group,omitempty"`
+	Labels         []string          `json:"labels,omitempty"`
+	Name           string            `json:"name"`
+	Type           string            `json:"type"`
+	UID            string            `json:"uid"`
+}
+
+// OCSFResourceData represents the data section of a resource
+type OCSFResourceData struct {
+	Details  string               `json:"details"`
+	Metadata OCSFResourceMetadata `json:"metadata"`
+}
+
+// OCSFResourceMetadata represents metadata about the resource
+type OCSFResourceMetadata struct {
+	ARN      string   `json:"arn,omitempty"`
+	Name     string   `json:"name"`
+	Status   string   `json:"status,omitempty"`
+	Findings []string `json:"findings"`
+	Tags     []string `json:"tags"`
+	Type     string   `json:"type"`
+	Region   string   `json:"region,omitempty"`
+}
+
+// OCSFResourceGroup represents the group section of a resource
+type OCSFResourceGroup struct {
+	Name string `json:"name"`
+}
+
 // Feature captures feature information
 func (f *OCSFFormatter) Feature(gd *messages.GherkinDocument, uri string, c []byte) {
 	if gd.Feature != nil {
@@ -87,7 +122,7 @@ func (f *OCSFFormatter) Feature(gd *messages.GherkinDocument, uri string, c []by
 func (f *OCSFFormatter) Pickle(pickle *messages.Pickle) {
 	// Initialize a new finding for this scenario
 	now := time.Now()
-	f.currentScenario = &OCSFFinding{
+	finding := &OCSFFinding{
 		Message: pickle.Name,
 		Metadata: OCSFMetadata{
 			EventCode: "ccc_compliance_test",
@@ -129,6 +164,45 @@ func (f *OCSFFormatter) Pickle(pickle *messages.Pickle) {
 		TypeUID:      200401,
 		TypeName:     "Compliance Finding: Test",
 	}
+
+	// Add resources section if params are available
+	if f.params != nil && (f.params.UID != "" || f.params.HostName != "") {
+		resourceName := f.params.HostName
+		resourceUID := f.params.UID
+		if resourceUID == "" {
+			resourceUID = fmt.Sprintf("%s:%s", f.params.HostName, f.params.PortNumber)
+		}
+		if resourceName == "" {
+			resourceName = resourceUID
+		}
+
+		resource := OCSFResource{
+			CloudPartition: f.params.Provider,
+			Region:         f.params.Region,
+			Data: OCSFResourceData{
+				Details: fmt.Sprintf("%s service on %s:%s", f.params.Protocol, f.params.HostName, f.params.PortNumber),
+				Metadata: OCSFResourceMetadata{
+					Name:     resourceName,
+					Status:   "ACTIVE",
+					Findings: []string{},
+					Tags:     []string{},
+					Type:     f.params.ServiceType,
+					Region:   f.params.Region,
+				},
+			},
+			Group: OCSFResourceGroup{
+				Name: f.params.ServiceType,
+			},
+			Labels: f.params.Labels,
+			Name:   resourceName,
+			Type:   f.params.ServiceType,
+			UID:    resourceUID,
+		}
+
+		finding.Resources = []OCSFResource{resource}
+	}
+
+	f.currentScenario = finding
 	f.scenarioStarted = true
 }
 
@@ -233,7 +307,7 @@ func (f *OCSFFormatter) Pending(pickle *messages.Pickle, step *messages.PickleSt
 }
 
 // NewOCSFFormatterWithParams creates a new OCSF formatter with test parameters
-func NewOCSFFormatterWithParams(suite string, out io.Writer, params PortTestParams) formatters.Formatter {
+func NewOCSFFormatterWithParams(suite string, out io.Writer, params TestParams) formatters.Formatter {
 	return &OCSFFormatter{
 		out:      out,
 		findings: make([]OCSFFinding, 0),

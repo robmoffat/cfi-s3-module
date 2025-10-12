@@ -42,7 +42,7 @@ type HTMLFormatter struct {
 	stepKeywords    map[string]string // Maps step AST node IDs to their keywords (Given/When/Then/And/But)
 	attachments     []Attachment      // Store attachments for current scenario
 	scenarioContext interface{}       // Store scenario context to access attachments
-	params          *PortTestParams   // Optional test parameters
+	params          *TestParams       // Optional test parameters
 }
 
 // Feature captures feature information
@@ -347,7 +347,7 @@ func (f *HTMLFormatter) generateHTML() string {
 }
 
 // NewHTMLFormatterWithParams creates a new HTML formatter with test parameters
-func NewHTMLFormatterWithParams(suite string, out io.Writer, params PortTestParams) formatters.Formatter {
+func NewHTMLFormatterWithParams(suite string, out io.Writer, params TestParams) formatters.Formatter {
 	f := &HTMLFormatter{
 		out:          out,
 		title:        suite,

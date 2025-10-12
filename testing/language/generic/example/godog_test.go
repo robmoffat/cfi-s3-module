@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -81,21 +80,12 @@ func TestGodogFeatures(t *testing.T) {
 	suite := NewTestSuite()
 	suite.T = t
 
-	// Create HTML output file
-	htmlFile, err := os.Create("cucumber-report.html")
-	if err != nil {
-		t.Fatalf("Failed to create cucumber-report.html: %v", err)
-	}
-	defer htmlFile.Close()
-
-	// Create formatter factory with empty parameters for generic tests
-	factory := reporters.NewFormatterFactory(reporters.PortTestParams{})
+	factory := reporters.NewFormatterFactory(reporters.TestParams{})
 
 	godog.Format("html", "HTML report", factory.GetHTMLFormatterFunc())
 
 	opts := godog.Options{
 		Format:   "html:cucumber-report.html",
-		Output:   htmlFile,
 		Paths:    []string{"features"},
 		TestingT: t,
 	}

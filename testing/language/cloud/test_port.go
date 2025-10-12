@@ -27,7 +27,7 @@ func NewTestSuite() *TestSuite {
 }
 
 // Setup method called before each scenario with provided parameters
-func (suite *TestSuite) setupWithParams(params reporters.PortTestParams) {
+func (suite *TestSuite) setupWithParams(params reporters.TestParams) {
 	// Don't reset CloudWorld - just reset Props
 	// This ensures step registrations remain valid
 	suite.Props = make(map[string]interface{})
@@ -40,7 +40,7 @@ func (suite *TestSuite) setupWithParams(params reporters.PortTestParams) {
 }
 
 // InitializeScenarioWithParams initializes the scenario context with custom parameters
-func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext, params reporters.PortTestParams) {
+func (suite *TestSuite) InitializeScenarioWithParams(ctx *godog.ScenarioContext, params reporters.TestParams) {
 	// Setup before each scenario
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		suite.setupWithParams(params)
@@ -70,7 +70,7 @@ func buildTagFilter(protocol string) string {
 }
 
 // RunPortTests runs godog tests for a specific port configuration
-func RunPortTests(t *testing.T, params reporters.PortTestParams, featuresPath, reportPath string) {
+func RunPortTests(t *testing.T, params reporters.TestParams, featuresPath, reportPath string) {
 	suite := NewTestSuite()
 
 	// Create output directory if it doesn't exist
