@@ -5,8 +5,9 @@
 ```gherkin
 @PerPort                        # Indicates that the test is written for a single port
 @http, @ssh, @ftp, @smtp        # Indicate that the test only applies to a specific port protocol (see below)
-@plaintext, @tls                # Applies to only plaintext/tls ports. e.g http is plaintext whereas https is tls.
+@plaintext, @tls                # Applies to only plaintext/tls ports. e.g http is plaintext whereas https is tls.
 @PerService                     # This test applies across the whole service
+@CCC.ObjStor, @CCC.RDMS, etc.   # Indicate that the test only applies to a specific CCC catalog type
 @tlp-green @tlp-amber @tlp-red  # Traffic-light protocol level of the control.
 ```
 
@@ -17,12 +18,16 @@ Where a test is `@PerPort`:
 - `portNumber` e.g. 22
 - `hostName` e.g. example.com
 - `protocol` e.g. imap, pop3, ldap, postgres
-- `serviceType`
+- `serviceType` (deprecated, use providerServiceType or catalogType)
+- `providerServiceType` e.g. s3, rds, Microsoft.Storage/storageAccounts
+- `catalogType` e.g. CCC.ObjStor, CCC.RDMS, CCC.VM
 
 Where a test is `@PerService`:
 
-- `hostName`
-- `serviceType`
+- `hostName` e.g. my-bucket.s3.amazonaws.com
+- `serviceType` (deprecated, use providerServiceType or catalogType)
+- `providerServiceType` e.g. s3, rds, Microsoft.Storage/storageAccounts
+- `catalogType` e.g. CCC.ObjStor, CCC.RDMS, CCC.VM
 
 ## Connections
 

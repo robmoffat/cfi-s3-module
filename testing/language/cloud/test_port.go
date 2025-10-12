@@ -111,8 +111,6 @@ func RunPortTests(t *testing.T, params reporters.TestParams, featuresPath, repor
 		Options: &opts,
 	}.Run()
 
-	t.Logf("HTML report generated: %s", htmlReportPath)
-
 	if status == 2 {
 		t.SkipNow()
 	}

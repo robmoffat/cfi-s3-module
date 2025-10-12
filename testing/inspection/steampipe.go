@@ -244,6 +244,17 @@ func parsePortResults(rows *sql.Rows, provider string) ([]TestParams, error) {
 
 		port.Provider = provider
 
+		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
+		port.ProviderServiceType = port.ServiceType
+
+		// Lookup CatalogType from service mapping
+		if catalogType, ok := LookupCatalogType(provider, port.ProviderServiceType); ok {
+			port.CatalogType = catalogType
+		} else {
+			// If no mapping found, leave CatalogType empty
+			port.CatalogType = ""
+		}
+
 		// Parse labels from JSON string if present
 		if labelsJSON.Valid {
 			// Simple parsing - in production you'd want proper JSON unmarshaling
@@ -291,6 +302,17 @@ func parseServiceResults(rows *sql.Rows, provider string) ([]TestParams, error) 
 		svc.Provider = provider
 		svc.PortNumber = "" // Services may not have a specific port
 		svc.Protocol = ""   // Determined by service type
+
+		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
+		svc.ProviderServiceType = svc.ServiceType
+
+		// Lookup CatalogType from service mapping
+		if catalogType, ok := LookupCatalogType(provider, svc.ProviderServiceType); ok {
+			svc.CatalogType = catalogType
+		} else {
+			// If no mapping found, leave CatalogType empty
+			svc.CatalogType = ""
+		}
 
 		// Parse labels from JSON string if present
 		if labelsJSON.Valid {
