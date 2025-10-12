@@ -82,7 +82,7 @@ func RunServiceTests(t *testing.T, params reporters.TestParams, featuresPath, re
 	t.Logf("Using tag filter: %s", tagFilter)
 
 	// Create report title
-	reportTitle := "Service Test Report: " + params.HostName + " (" + params.CatalogType + " / " + params.ProviderServiceType + ")"
+	reportTitle := "Service Test Report: " + params.ResourceName + " (" + params.CatalogType + " / " + params.ProviderServiceType + ")"
 
 	opts := godog.Options{
 		Format:   fmt.Sprintf("html:%s,ocsf:%s", htmlReportPath, ocsfReportPath),

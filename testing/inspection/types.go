@@ -13,6 +13,7 @@ type TestParams struct {
 	Provider            string   // Cloud provider ("aws", "azure", "gcp")
 	Labels              []string // Tags/labels from the resource
 	UID                 string   // Unique identifier (ARN, resource ID, etc.)
+	ResourceName        string   // Human-readable resource name extracted from ARN or resource ID
 }
 
 // AllCatalogTypes contains all known CCC catalog types for tag filtering

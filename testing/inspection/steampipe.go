@@ -268,6 +268,7 @@ func parsePortResults(rows *sql.Rows, provider string) ([]TestParams, error) {
 
 		port.Provider = provider
 		port.HostName = hostname
+		port.ResourceName = port.ServiceType // For ports, use the security group/firewall name
 
 		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
 		port.ProviderServiceType = port.ServiceType
@@ -303,7 +304,7 @@ func parseServiceResults(rows *sql.Rows, provider string) ([]TestParams, error) 
 	for rows.Next() {
 		var svc TestParams
 		var labelsJSON sql.NullString
-		var serviceName string // Captured for display but not stored in TestParams
+		var serviceName string // Resource name for display
 		var endpoint string    // Captured but not stored in TestParams
 		var resourceARN string // Captured but not stored in TestParams
 		var status string      // Captured but not stored in TestParams
@@ -323,9 +324,10 @@ func parseServiceResults(rows *sql.Rows, provider string) ([]TestParams, error) 
 		}
 
 		svc.Provider = provider
-		svc.HostName = ""   // Services don't have hostnames
-		svc.PortNumber = "" // Services don't have specific ports
-		svc.Protocol = ""   // Services don't have specific protocols
+		svc.HostName = ""              // Services don't have hostnames
+		svc.PortNumber = ""            // Services don't have specific ports
+		svc.Protocol = ""              // Services don't have specific protocols
+		svc.ResourceName = serviceName // Human-readable resource name
 
 		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
 		svc.ProviderServiceType = svc.ServiceType

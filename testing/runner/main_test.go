@@ -116,7 +116,7 @@ func TestRunCompliance(t *testing.T) {
 				}
 
 				log.Printf("\n🛠️  Running tests for service %d/%d:", i+1, len(services))
-				log.Printf("   Host: %s", service.HostName)
+				log.Printf("   Resource Name: %s", service.ResourceName)
 				log.Printf("   Provider Service: %s", service.ProviderServiceType)
 				log.Printf("   Catalog Type: %s", service.CatalogType)
 				log.Printf("   Region: %s", service.Region)
@@ -166,11 +166,10 @@ func TestRunCompliance(t *testing.T) {
 // runPortTest runs tests for a single port configuration
 func runPortTest(t *testing.T, port inspection.TestParams, featuresPath, outputDir string) string {
 	// Create a safe filename from the port details
-	filename := fmt.Sprintf("port_%s_%s_%s_%s",
-		sanitizeFilename(port.Provider),
+	filename := fmt.Sprintf("port-%s-%s:%s",
+		sanitizeFilename(port.ResourceName),
 		sanitizeFilename(port.HostName),
 		sanitizeFilename(port.PortNumber),
-		sanitizeFilename(port.Protocol),
 	)
 	reportPath := filepath.Join(outputDir, filename)
 
@@ -191,10 +190,8 @@ func runPortTest(t *testing.T, port inspection.TestParams, featuresPath, outputD
 // runServiceTest runs tests for a single service configuration
 func runServiceTest(t *testing.T, service inspection.TestParams, featuresPath, outputDir string) string {
 	// Create a safe filename from the service details
-	filename := fmt.Sprintf("service_%s_%s_%s",
-		sanitizeFilename(service.Provider),
-		sanitizeFilename(service.CatalogType),
-		sanitizeFilename(service.UID),
+	filename := fmt.Sprintf("service-%s",
+		sanitizeFilename(service.ResourceName),
 	)
 	reportPath := filepath.Join(outputDir, filename)
 
