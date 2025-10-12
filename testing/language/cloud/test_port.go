@@ -2,7 +2,9 @@ package cloud
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -74,7 +76,8 @@ func RunPortTests(t *testing.T, params reporters.TestParams, featuresPath, repor
 	suite := NewTestSuite()
 
 	// Create output directory if it doesn't exist
-	if err := os.MkdirAll("output", 0755); err != nil {
+	outputDir := filepath.Dir(reportPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
 
@@ -97,10 +100,10 @@ func RunPortTests(t *testing.T, params reporters.TestParams, featuresPath, repor
 	reportTitle := "Port Test Report: " + params.HostName + ":" + params.PortNumber + " (" + params.Protocol + ")"
 
 	opts := godog.Options{
-		Format:   "html:" + htmlReportPath + ",ocsf:" + ocsfReportPath,
+		Format:   fmt.Sprintf("html:%s,ocsf:%s", htmlReportPath, ocsfReportPath),
 		Paths:    []string{featuresPath},
 		Tags:     tagFilter,
-		TestingT: t,
+		TestingT: nil, // Don't use TestingT to allow proper file output
 	}
 
 	status := godog.TestSuite{
@@ -111,11 +114,12 @@ func RunPortTests(t *testing.T, params reporters.TestParams, featuresPath, repor
 		Options: &opts,
 	}.Run()
 
+	// Map godog status to testing behavior
 	if status == 2 {
 		t.SkipNow()
 	}
 
 	if status != 0 {
-		t.Fatalf("zero status code expected, %d received", status)
+		t.FailNow()
 	}
 }

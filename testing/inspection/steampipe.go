@@ -97,13 +97,21 @@ func getAWSPortsQuery() string {
 			sg.region,
 			sg.arn as resource_arn,
 			'open' as status,
-			sg.tags::text as labels
+			sg.tags::text as labels,
+			i.public_ip_address as hostname
 		FROM 
 			aws_vpc_security_group sg,
 			jsonb_array_elements(ip_permissions) as ip_permission
+		INNER JOIN aws_ec2_instance i ON sg.group_id = ANY(
+			SELECT jsonb_array_elements_text(
+				jsonb_path_query_array(i.security_groups, '$[*].GroupId')
+			)
+		)
 		WHERE 
-			ip_permission->'IpRanges' @> '[{"CidrIp": "0.0.0.0/0"}]'
-			OR ip_permission->'Ipv6Ranges' @> '[{"CidrIpv6": "::/0"}]'
+			(ip_permission->'IpRanges' @> '[{"CidrIp": "0.0.0.0/0"}]'
+			 OR ip_permission->'Ipv6Ranges' @> '[{"CidrIpv6": "::/0"}]')
+			AND i.public_ip_address IS NOT NULL
+			AND i.public_ip_address != ''
 		ORDER BY 
 			sg.region, port_number;
 	`
@@ -120,14 +128,19 @@ func getAzurePortsQuery() string {
 			nsg.region,
 			nsg.id as resource_arn,
 			'open' as status,
-			nsg.tags::text as labels
+			nsg.tags::text as labels,
+			vm.public_ip_address as hostname
 		FROM 
 			azure_network_security_group nsg,
-			jsonb_array_elements(security_rules) as rule
+			jsonb_array_elements(security_rules) as rule,
+			azure_compute_virtual_machine vm
 		WHERE 
 			rule->>'access' = 'Allow'
 			AND rule->>'direction' = 'Inbound'
 			AND (rule->>'sourceAddressPrefix' = '*' OR rule->>'sourceAddressPrefix' = 'Internet')
+			AND vm.network_profile->>'networkInterfaces' LIKE '%' || nsg.id || '%'
+			AND vm.public_ip_address IS NOT NULL
+			AND vm.public_ip_address != ''
 		ORDER BY 
 			nsg.region, port_number;
 	`
@@ -144,14 +157,23 @@ func getGCPPortsQuery() string {
 			COALESCE(fw.location, 'global') as region,
 			fw.self_link as resource_arn,
 			'open' as status,
-			'{}'::text as labels
+			'{}'::text as labels,
+			COALESCE(
+				ac->>'natIP',
+				ac->>'externalIpv6'
+			) as hostname
 		FROM 
 			gcp_compute_firewall fw,
 			jsonb_array_elements(allowed) as allowed_rule,
-			jsonb_array_elements_text(source_ranges) as source_range
+			jsonb_array_elements_text(source_ranges) as source_range,
+			gcp_compute_instance i,
+			jsonb_array_elements(i.network_interfaces) as ni,
+			jsonb_array_elements(ni->'accessConfigs') as ac
 		WHERE 
 			source_range = '0.0.0.0/0'
 			AND direction = 'INGRESS'
+			AND ni->>'network' = fw.network
+			AND (ac->>'natIP' IS NOT NULL OR ac->>'externalIpv6' IS NOT NULL)
 		ORDER BY 
 			region, port_number;
 	`
@@ -227,6 +249,7 @@ func parsePortResults(rows *sql.Rows, provider string) ([]TestParams, error) {
 		var labelsJSON sql.NullString
 		var resourceARN string // Captured but not stored in TestParams
 		var status string      // Captured but not stored in TestParams
+		var hostname string    // Hostname/IP from query
 
 		err := rows.Scan(
 			&port.UID,
@@ -237,12 +260,14 @@ func parsePortResults(rows *sql.Rows, provider string) ([]TestParams, error) {
 			&resourceARN,
 			&status,
 			&labelsJSON,
+			&hostname,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		port.Provider = provider
+		port.HostName = hostname
 
 		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
 		port.ProviderServiceType = port.ServiceType
@@ -260,9 +285,6 @@ func parsePortResults(rows *sql.Rows, provider string) ([]TestParams, error) {
 			// Simple parsing - in production you'd want proper JSON unmarshaling
 			port.Labels = []string{labelsJSON.String}
 		}
-
-		// Set hostname if available (would need to join with instance data)
-		port.HostName = "" // To be populated from instance/endpoint data
 
 		ports = append(ports, port)
 	}
@@ -282,13 +304,14 @@ func parseServiceResults(rows *sql.Rows, provider string) ([]TestParams, error) 
 		var svc TestParams
 		var labelsJSON sql.NullString
 		var serviceName string // Captured for display but not stored in TestParams
+		var endpoint string    // Captured but not stored in TestParams
 		var resourceARN string // Captured but not stored in TestParams
 		var status string      // Captured but not stored in TestParams
 
 		err := rows.Scan(
 			&svc.ServiceType,
 			&serviceName,
-			&svc.HostName, // Using HostName for the endpoint
+			&endpoint, // Endpoint/resource identifier (not stored in TestParams)
 			&svc.Region,
 			&resourceARN,
 			&status,
@@ -300,8 +323,9 @@ func parseServiceResults(rows *sql.Rows, provider string) ([]TestParams, error) 
 		}
 
 		svc.Provider = provider
-		svc.PortNumber = "" // Services may not have a specific port
-		svc.Protocol = ""   // Determined by service type
+		svc.HostName = ""   // Services don't have hostnames
+		svc.PortNumber = "" // Services don't have specific ports
+		svc.Protocol = ""   // Services don't have specific protocols
 
 		// Set ProviderServiceType from ServiceType for now (will be properly extracted in future)
 		svc.ProviderServiceType = svc.ServiceType

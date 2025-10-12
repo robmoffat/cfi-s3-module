@@ -15,10 +15,15 @@ import (
 	"github.com/finos-labs/ccc-cfi-compliance/testing/language/cloud"
 )
 
+const (
+	// featuresPath is hardcoded relative to this file (testing/runner/main_test.go)
+	// Features are in testing/features/
+	featuresPath = "../features"
+)
+
 var (
 	provider     = flag.String("provider", "", "Cloud provider (aws, azure, or gcp)")
 	outputDir    = flag.String("output", "output", "Output directory for test reports")
-	featuresPath = flag.String("features", "../features", "Path to feature files")
 	timeout      = flag.Duration("timeout", 30*time.Minute, "Timeout for all tests")
 	skipPorts    = flag.Bool("skip-ports", false, "Skip port tests")
 	skipServices = flag.Bool("skip-services", false, "Skip service tests")
@@ -43,7 +48,7 @@ func TestRunCompliance(t *testing.T) {
 	log.Printf("🚀 Starting CCC CFI Compliance Tests")
 	log.Printf("   Provider: %s", *provider)
 	log.Printf("   Output Directory: %s", *outputDir)
-	log.Printf("   Features Path: %s", *featuresPath)
+	log.Printf("   Features Path: %s", featuresPath)
 	log.Printf("   Timeout: %s", *timeout)
 	log.Println()
 
@@ -74,7 +79,7 @@ func TestRunCompliance(t *testing.T) {
 				log.Printf("   Catalog Type: %s", port.CatalogType)
 
 				totalTests++
-				result := runPortTest(t, port, *featuresPath, *outputDir)
+				result := runPortTest(t, port, featuresPath, *outputDir)
 
 				switch result {
 				case "passed":
@@ -118,7 +123,7 @@ func TestRunCompliance(t *testing.T) {
 				log.Printf("   UID: %s", service.UID)
 
 				totalTests++
-				result := runServiceTest(t, service, *featuresPath, *outputDir)
+				result := runServiceTest(t, service, featuresPath, *outputDir)
 
 				switch result {
 				case "passed":

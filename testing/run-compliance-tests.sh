@@ -7,7 +7,6 @@ set -euo pipefail
 # Default values
 PROVIDER=""
 OUTPUT_DIR="output"
-FEATURES_PATH="testing/features"
 SKIP_PORTS=""
 SKIP_SERVICES=""
 TIMEOUT="30m"
@@ -21,10 +20,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     -o|--output)
       OUTPUT_DIR="$2"
-      shift 2
-      ;;
-    -f|--features)
-      FEATURES_PATH="$2"
       shift 2
       ;;
     --skip-ports)
@@ -45,7 +40,6 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  -p, --provider PROVIDER    Cloud provider (aws, azure, or gcp) [REQUIRED]"
       echo "  -o, --output DIR          Output directory for test reports (default: output)"
-      echo "  -f, --features PATH       Path to feature files (default: testing/features)"
       echo "  --skip-ports              Skip port tests"
       echo "  --skip-services           Skip service tests"
       echo "  -t, --timeout DURATION    Timeout for all tests (default: 30m)"
@@ -80,13 +74,22 @@ fi
 # Run the tests
 echo "🚀 Running compliance tests..."
 cd "$(dirname "$0")"
-go test -v ./runner \
-  -provider="$PROVIDER" \
-  -output="$OUTPUT_DIR" \
-  -features="$FEATURES_PATH" \
-  -timeout="$TIMEOUT" \
-  $SKIP_PORTS \
-  $SKIP_SERVICES
+
+# Build the command with proper flag handling
+# Note: -timeout is a go test flag and must come before ./runner
+TEST_CMD="go test -v -timeout=\"$TIMEOUT\" ./runner -provider=\"$PROVIDER\" -output=\"$OUTPUT_DIR\""
+
+# Add optional flags only if set
+if [ -n "$SKIP_PORTS" ]; then
+  TEST_CMD="$TEST_CMD -skip-ports"
+fi
+
+if [ -n "$SKIP_SERVICES" ]; then
+  TEST_CMD="$TEST_CMD -skip-services"
+fi
+
+# Execute the command
+eval $TEST_CMD
 
 exit $?
 
