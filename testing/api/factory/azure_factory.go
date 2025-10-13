@@ -5,7 +5,7 @@ import (
 
 	"github.com/finos-labs/ccc-cfi-compliance/testing/api/generic"
 	"github.com/finos-labs/ccc-cfi-compliance/testing/api/iam"
-	"github.com/finos-labs/ccc-cfi-compliance/testing/api/object-storage"
+	objstorage "github.com/finos-labs/ccc-cfi-compliance/testing/api/object-storage"
 )
 
 // AzureFactory implements the Factory interface for Azure

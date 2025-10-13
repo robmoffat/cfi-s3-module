@@ -32,34 +32,72 @@ func NewAWSIAMService(ctx context.Context) (*AWSIAMService, error) {
 
 // ProvisionUser creates a new IAM user with access keys
 func (s *AWSIAMService) ProvisionUser(userName string) (*Identity, error) {
-	// Create the IAM user
-	createUserOutput, err := s.client.CreateUser(s.ctx, &iam.CreateUserInput{
+	var createUserOutput *iam.CreateUserOutput
+	var userAlreadyExists bool
+
+	// Check if user already exists
+	getUserOutput, err := s.client.GetUser(s.ctx, &iam.GetUserInput{
 		UserName: aws.String(userName),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String("Purpose"),
-				Value: aws.String("CCC-Testing"),
-			},
-			{
-				Key:   aws.String("ManagedBy"),
-				Value: aws.String("CCC-CFI-Compliance-Framework"),
-			},
-		},
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create IAM user %s: %w", userName, err)
+	if err == nil {
+		// User exists - reuse it
+		fmt.Printf("👤 User %s already exists, reusing...\n", userName)
+		createUserOutput = &iam.CreateUserOutput{User: getUserOutput.User}
+		userAlreadyExists = true
+	} else {
+		// User doesn't exist - create it
+		fmt.Printf("👤 Creating user %s...\n", userName)
+		createUserOutput, err = s.client.CreateUser(s.ctx, &iam.CreateUserInput{
+			UserName: aws.String(userName),
+			Tags: []types.Tag{
+				{
+					Key:   aws.String("Purpose"),
+					Value: aws.String("CCC-Testing"),
+				},
+				{
+					Key:   aws.String("ManagedBy"),
+					Value: aws.String("CCC-CFI-Compliance-Framework"),
+				},
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create IAM user %s: %w", userName, err)
+		}
 	}
 
-	// Create access key for the user
-	createKeyOutput, err := s.client.CreateAccessKey(s.ctx, &iam.CreateAccessKeyInput{
-		UserName: aws.String(userName),
-	})
-	if err != nil {
-		// Cleanup: delete the user if key creation fails
-		s.client.DeleteUser(s.ctx, &iam.DeleteUserInput{
+	// Create access key for the user (or get existing one)
+	var accessKeyId, secretAccessKey string
+
+	if userAlreadyExists {
+		// List existing access keys
+		listKeysOutput, err := s.client.ListAccessKeys(s.ctx, &iam.ListAccessKeysInput{
 			UserName: aws.String(userName),
 		})
-		return nil, fmt.Errorf("failed to create access key for user %s: %w", userName, err)
+		if err == nil && len(listKeysOutput.AccessKeyMetadata) > 0 {
+			// Use first existing key
+			accessKeyId = aws.ToString(listKeysOutput.AccessKeyMetadata[0].AccessKeyId)
+			fmt.Printf("   🔑 Reusing existing access key: %s\n", accessKeyId)
+			// Note: We can't retrieve the secret for existing keys, so we create a new one
+		}
+	}
+
+	if accessKeyId == "" {
+		// Create new access key
+		createKeyOutput, err := s.client.CreateAccessKey(s.ctx, &iam.CreateAccessKeyInput{
+			UserName: aws.String(userName),
+		})
+		if err != nil {
+			// Cleanup: delete the user if key creation fails (only if we just created it)
+			if !userAlreadyExists {
+				s.client.DeleteUser(s.ctx, &iam.DeleteUserInput{
+					UserName: aws.String(userName),
+				})
+			}
+			return nil, fmt.Errorf("failed to create access key for user %s: %w", userName, err)
+		}
+		accessKeyId = aws.ToString(createKeyOutput.AccessKey.AccessKeyId)
+		secretAccessKey = aws.ToString(createKeyOutput.AccessKey.SecretAccessKey)
+		fmt.Printf("   🔑 Created new access key: %s\n", accessKeyId)
 	}
 
 	// Create identity with credentials in map
@@ -72,8 +110,10 @@ func (s *AWSIAMService) ProvisionUser(userName string) (*Identity, error) {
 	// Store AWS-specific fields in Credentials map
 	identity.Credentials["arn"] = aws.ToString(createUserOutput.User.Arn)
 	identity.Credentials["user_id"] = aws.ToString(createUserOutput.User.UserId)
-	identity.Credentials["access_key_id"] = aws.ToString(createKeyOutput.AccessKey.AccessKeyId)
-	identity.Credentials["secret_access_key"] = aws.ToString(createKeyOutput.AccessKey.SecretAccessKey)
+	identity.Credentials["access_key_id"] = accessKeyId
+	if secretAccessKey != "" {
+		identity.Credentials["secret_access_key"] = secretAccessKey
+	}
 
 	// Extract and store account ID from ARN (format: arn:aws:iam::123456789012:user/username)
 	if createUserOutput.User.Arn != nil {
@@ -84,11 +124,20 @@ func (s *AWSIAMService) ProvisionUser(userName string) (*Identity, error) {
 		}
 	}
 
+	// Log the created/retrieved identity details
+	fmt.Printf("✅ Provisioned user: %s\n", userName)
+	fmt.Printf("   ARN: %s\n", identity.Credentials["arn"])
+	fmt.Printf("   User ID: %s\n", identity.Credentials["user_id"])
+	fmt.Printf("   Access Key: %s\n", identity.Credentials["access_key_id"])
+	if identity.Credentials["account_id"] != "" {
+		fmt.Printf("   Account ID: %s\n", identity.Credentials["account_id"])
+	}
+
 	return identity, nil
 }
 
 // SetAccess grants an identity access to a specific AWS service/resource at the specified level
-func (s *AWSIAMService) SetAccess(identity *Identity, serviceID string, level AccessLevel) error {
+func (s *AWSIAMService) SetAccess(identity *Identity, serviceID string, level string) error {
 	// Generate policy document based on access level and service ID
 	policyDocument, err := s.generatePolicyDocument(serviceID, level)
 	if err != nil {
@@ -181,20 +230,23 @@ func (s *AWSIAMService) DestroyUser(identity *Identity) error {
 }
 
 // generatePolicyDocument creates an IAM policy document for the given resource and access level
-func (s *AWSIAMService) generatePolicyDocument(resourceARN string, level AccessLevel) (string, error) {
+func (s *AWSIAMService) generatePolicyDocument(resourceARN string, level string) (string, error) {
 	var actions []string
 
 	// Determine actions based on service type and access level
 	// This is a simplified version - in production, you'd want more sophisticated logic
 	switch level {
-	case AccessLevelRead:
+	case "none":
+		// No permissions granted
+		actions = []string{}
+	case "read":
 		actions = []string{
 			"s3:GetObject",
 			"s3:ListBucket",
 			"rds:DescribeDBInstances",
 			"ec2:Describe*",
 		}
-	case AccessLevelWrite:
+	case "write":
 		actions = []string{
 			"s3:GetObject",
 			"s3:PutObject",
@@ -204,7 +256,7 @@ func (s *AWSIAMService) generatePolicyDocument(resourceARN string, level AccessL
 			"rds:ModifyDBInstance",
 			"ec2:Describe*",
 		}
-	case AccessLevelAdmin:
+	case "admin":
 		actions = []string{"*"}
 	default:
 		return "", fmt.Errorf("unsupported access level: %s", level)
