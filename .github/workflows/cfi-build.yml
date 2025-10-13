@@ -44,19 +44,28 @@ jobs:
     needs: prepare-matrix
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
         target: ${{ fromJson(needs.prepare-matrix.outputs.matrix).target }}
       fail-fast: false
 
     env:
-      AWS_REGION: us-east-1
+      AWS_REGION: ${{ secrets.AWS_REGION }}
       OUTPUT_DIR: results
       TARGET_ID: ${{ matrix.target.id }}
       TARGET_NAME: ${{ matrix.target.name }}
       TARGET_PATH: ${{ matrix.target.path }}
       TARGET_PROVIDER: ${{ matrix.target.provider }}
       TARGET_SERVICE: ${{ matrix.target.service }}
+      # Terraform variables
       TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+      TF_VAR_target_id: ${{ matrix.target.id }}
+      TF_VAR_github_run_id: ${{ github.run_id }}
+      TF_VAR_github_run_number: ${{ github.run_number }}
+      TF_VAR_github_actor: ${{ github.actor }}
+      TF_VAR_github_repository: ${{ github.repository }}
+      TF_VAR_github_workflow: ${{ github.workflow }}
+      TF_VAR_github_sha: ${{ github.sha }}
 
     steps:
       - name: Checkout repo
@@ -89,6 +98,189 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install Steampipe
+        run: |
+          echo "📦 Installing Steampipe..."
+          sudo /bin/sh -c "$(curl -fsSL https://steampipe.io/install/steampipe.sh)"
+          steampipe --version
+          
+          echo "📦 Installing Steampipe plugins..."
+          steampipe plugin install aws
+          steampipe plugin install azure
+          steampipe plugin install gcp
+          
+          echo "🚀 Starting Steampipe service..."
+          steampipe service start
+          
+          echo "✅ Steampipe installed and configured successfully"
+
+      - name: Install aws-nuke
+        if: matrix.target.provider == 'aws'
+        run: |
+          wget -q https://github.com/rebuy-de/aws-nuke/releases/download/v2.25.0/aws-nuke-v2.25.0-linux-amd64.tar.gz
+          tar -xzf aws-nuke-v2.25.0-linux-amd64.tar.gz
+          sudo mv aws-nuke-v2.25.0-linux-amd64 /usr/local/bin/aws-nuke
+          sudo chmod +x /usr/local/bin/aws-nuke
+
+      - name: Cleanup AWS resources from previous runs
+        if: matrix.target.provider == 'aws'
+        continue-on-error: true
+        run: |
+          echo "🧹 Cleaning up AWS resources from previous runs using aws-nuke..."
+
+          # Create aws-nuke config with generic tag-based filtering
+          cat > nuke-config.yml << EOF
+          regions:
+            - ${{ env.AWS_REGION }}
+            - global
+
+          account-blocklist:
+            - "999999999999" # Prevent accidental deletion in wrong account
+
+          accounts:
+            "${{ secrets.AWS_ACCOUNT_ID }}":
+              # Global filter: only delete resources with Environment=cfi-test tag
+              resource-types:
+                # Use __global__ to apply filter to ALL resource types
+                excludes:
+                  - IAMUser  # Don't delete IAM users for safety
+                  - IAMGroup # Don't delete IAM groups for safety
+                  - S3Object # Don't delete individual objects (will delete buckets)
+              
+              filters:
+                # Generic tag-based filter for all taggable resources
+                __global__:
+                  - property: tag:Environment
+                    value: "cfi-test"
+                
+                # Name-based filters for resources that don't support tags
+                S3Bucket:
+                  - type: glob
+                    value: "*terraform-*"
+                  - type: glob
+                    value: "*cfi-test*"
+                
+                IAMRole:
+                  - type: glob
+                    value: "terraform-*"
+                  - type: glob
+                    value: "*cfi-test*"
+                
+                CloudFormationStack:
+                  - type: glob
+                    value: "terraform-*"
+                  - type: glob
+                    value: "*cfi-test*"
+                
+                CloudWatchLogsLogGroup:
+                  - type: glob
+                    value: "*terraform*"
+                  - type: glob
+                    value: "*cfi-test*"
+          EOF
+
+          # Verify AWS credentials are working
+          echo "🔐 Verifying AWS credentials..."
+          aws sts get-caller-identity || {
+            echo "❌ AWS credentials not configured properly"
+            exit 1
+          }
+
+          # Run aws-nuke in dry-run mode first to see what would be deleted
+          echo "📋 Dry-run to see what would be deleted:"
+          aws-nuke -c nuke-config.yml --no-dry-run=false || true
+
+          # Actually delete resources (with force flag)
+          echo "💥 Deleting resources:"
+          aws-nuke -c nuke-config.yml --no-dry-run --force || true
+
+          echo "✅ AWS cleanup completed"
+
+      - name: Cleanup Azure resources from previous runs
+        if: matrix.target.provider == 'azure'
+        continue-on-error: true
+        run: |
+          echo "🧹 Cleaning up Azure resources from previous runs..."
+
+          # Delete resource groups with cfi-test or terraform prefix
+          for rg in $(az group list --query "[?contains(name, 'cfi-test') || contains(name, 'terraform-')].name" -o tsv); do
+            echo "Deleting resource group: $rg"
+            az group delete --name $rg --yes --no-wait || true
+          done
+
+          echo "✅ Azure cleanup completed"
+
+      - name: Cleanup GCP resources from previous runs
+        if: matrix.target.provider == 'gcp'
+        continue-on-error: true
+        run: |
+          echo "🧹 Cleaning up GCP resources from previous runs..."
+
+          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          LABEL_FILTER="labels.environment=cfi-test"
+          NAME_FILTER="name:cfi-test OR name:terraform-"
+
+          # Generic cleanup function
+          cleanup() {
+            local cmd=$1
+            echo "Running: $cmd"
+            eval "$cmd" || true
+          }
+
+          # Compute resources (by label)
+          cleanup "gcloud compute instances list --filter='$LABEL_FILTER' --format='value(name,zone)' | while read name zone; do gcloud compute instances delete \$name --zone=\$zone --quiet; done"
+          cleanup "gcloud compute disks list --filter='$LABEL_FILTER' --format='value(name,zone)' | while read name zone; do gcloud compute disks delete \$name --zone=\$zone --quiet; done"
+
+          # Storage (by name pattern - GCS buckets don't support labels well)
+          cleanup "gcloud storage buckets list --filter='$NAME_FILTER' --format='value(name)' | while read bucket; do gcloud storage rm --recursive gs://\$bucket || true; gcloud storage buckets delete gs://\$bucket || true; done"
+
+          # Networking (by name pattern - often don't have labels)
+          cleanup "gcloud compute networks list --filter='$NAME_FILTER' --format='value(name)' | while read name; do gcloud compute networks delete \$name --quiet; done"
+
+          # Serverless (by label)
+          cleanup "gcloud functions list --filter='$LABEL_FILTER' --format='value(name,region)' | while read name region; do gcloud functions delete \$name --region=\$region --quiet; done"
+          cleanup "gcloud run services list --filter='metadata.labels.environment=cfi-test' --format='value(metadata.name,metadata.namespace)' | while read name region; do gcloud run services delete \$name --region=\$region --quiet; done"
+
+          # Databases (by label)  
+          cleanup "gcloud sql instances list --filter='settings.userLabels.environment=cfi-test' --format='value(name)' | while read name; do gcloud sql instances delete \$name --quiet; done"
+          cleanup "bq ls --filter='$LABEL_FILTER' --format=json | jq -r '.[].id' | while read dataset; do bq rm -r -f -d \$dataset; done"
+
+          # Messaging (by label)
+          cleanup "gcloud pubsub topics list --filter='$LABEL_FILTER' --format='value(name)' | while read topic; do gcloud pubsub topics delete \$topic --quiet; done"
+          cleanup "gcloud pubsub subscriptions list --filter='$LABEL_FILTER' --format='value(name)' | while read sub; do gcloud pubsub subscriptions delete \$sub --quiet; done"
+
+          echo "✅ GCP cleanup completed"
+
+      - name: Setup provider configuration with tagging
+        run: |
+          echo "📝 Copying provider configuration for $TARGET_PROVIDER..."
+
+          # GCP requires lowercase labels - sanitize target_id
+          if [ "$TARGET_PROVIDER" = "gcp" ]; then
+            export TF_VAR_target_id_sanitized=$(echo "$TARGET_ID" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+            export TF_VAR_github_run_id_sanitized=$(echo "${{ github.run_id }}" | tr '[:upper:]' '[:lower:]')
+            echo "📝 Sanitized for GCP: target_id=$TF_VAR_target_id_sanitized"
+          fi
+
+          # Copy the appropriate provider.tf.example to the target directory
+          if [ -f "remote/$TARGET_PROVIDER/provider.tf.example" ]; then
+            cp "remote/$TARGET_PROVIDER/provider.tf.example" "$TARGET_PATH/provider.tf"
+            echo "✅ Copied remote/$TARGET_PROVIDER/provider.tf.example to $TARGET_PATH/provider.tf"
+          else
+            echo "⚠️  No provider.tf.example found for $TARGET_PROVIDER"
+          fi
+
+          # Show what was copied
+          if [ -f "$TARGET_PATH/provider.tf" ]; then
+            echo "Provider configuration:"
+            cat "$TARGET_PATH/provider.tf"
+          fi
+
       - name: Cache Python Poetry virtualenv
         uses: actions/cache@v4
         with:
@@ -106,93 +298,113 @@ jobs:
           pipx install poetry
           poetry install
 
-      - name: Deploy and scan module
+      - name: Terraform Apply
+        id: terraform-apply
         run: |
           set -euo pipefail
 
-          echo "🚀 Processing module: $TARGET_NAME (id: $TARGET_ID)"
+          echo "🚀 Deploying module: $TARGET_NAME (id: $TARGET_ID)"
           echo "📁 Path: $TARGET_PATH"
           echo "☁️  Provider: $TARGET_PROVIDER"
           echo "🔧 Service: $TARGET_SERVICE"
 
-          mkdir -p "$OUTPUT_DIR"
+          cd "$GITHUB_WORKSPACE/$TARGET_PATH"
+          
+          if [ "$TARGET_PROVIDER" = "aws" ]; then
+            terraform init
+            terraform apply -auto-approve -input=false
+          elif [ "$TARGET_PROVIDER" = "azure" ]; then
+            export ARM_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            terraform init -upgrade
+            terraform apply -auto-approve -input=false
+          elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+            export TF_VAR_project_id="${{ secrets.GCP_PROJECT_ID }}"
+            terraform init
+            terraform apply -auto-approve -input=false
+          fi
 
-          (
-              # Trap to ensure destroy always runs
-              cleanup() {
-                  echo "🧨 Running final destroy for $TARGET_ID (even if script failed)..."
-                  cd "$GITHUB_WORKSPACE/$TARGET_PATH"
+          echo "✅ Terraform apply completed successfully for $TARGET_ID"
 
-                  if [ "$TARGET_PROVIDER" = "aws" ]; then
-                    terraform destroy -auto-approve  -input=false || true
-                  elif [ "$TARGET_PROVIDER" = "azure" ]; then
-                    terraform destroy -auto-approve -input=false || true
-                  elif [ "$TARGET_PROVIDER" = "gcp" ]; then
-                    terraform destroy -auto-approve -input=false || true
-                  fi
-              }
-              trap cleanup EXIT
+      - name: Run Prowler Scan
+        id: prowler-scan
+        if: success() && steps.terraform-apply.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
 
-              echo "🔧 Applying module $TARGET_ID..."
-              prowler_success=0
+          echo "🔍 Running Prowler scan for $TARGET_ID..."
+          cd "$GITHUB_WORKSPACE/prowler"
 
-              cd "$GITHUB_WORKSPACE/$TARGET_PATH"
-              if [ "$TARGET_PROVIDER" = "aws" ]; then
-                terraform init
-                terraform apply -auto-approve -input=false
-                
-                echo "🔍 Running Prowler scan for $TARGET_ID..."
-                cd "$GITHUB_WORKSPACE/prowler"
-                set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py aws
-                prowler_success=$?
-                set -e  # Re-enable exit on error
-                
-              elif [ "$TARGET_PROVIDER" = "azure" ]; then
-                export ARM_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-                terraform init -upgrade
-                terraform apply -auto-approve -input=false
-                
-                echo "🔍 Running Prowler scan for $TARGET_ID..."
-                cd "$GITHUB_WORKSPACE/prowler"
-                set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py azure --az-cli-auth
-                prowler_success=$?
-                set -e  # Re-enable exit on error
-                
-              elif [ "$TARGET_PROVIDER" = "gcp" ]; then
-                export TF_VAR_project_id="${{ secrets.GCP_PROJECT_ID }}"
+          if [ "$TARGET_PROVIDER" = "aws" ]; then
+            poetry run python prowler-cli.py aws
+          elif [ "$TARGET_PROVIDER" = "azure" ]; then
+            poetry run python prowler-cli.py azure --az-cli-auth
+          elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+            poetry run python prowler-cli.py gcp
+          fi
 
-                terraform init
-                terraform apply -auto-approve  -input=false
-                
-                echo "🔍 Running Prowler scan for $TARGET_ID..."
-                cd "$GITHUB_WORKSPACE/prowler"
-                set +e  # Temporarily disable exit on error for Prowler
-                poetry run python prowler-cli.py gcp
-                prowler_success=$?
-                set -e  # Re-enable exit on error
-              fi
-              
-              if [ "$prowler_success" = 0 ]; then
-                echo "✅ Prowler scan completed successfully for $TARGET_ID"
-              else
-                echo "⚠️  Prowler scan failed for $TARGET_ID (exit code: $prowler_success) but continuing workflow"
-              fi
+          echo "✅ Prowler scan completed successfully for $TARGET_ID"
 
-              if ls output/*.ocsf.json 1> /dev/null 2>&1; then
-                latest_file=$(ls -t output/*.ocsf.json | head -n 1)
-                if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
-                  cp "$latest_file" "../$OUTPUT_DIR/${TARGET_ID}_ocsf.json"
-                  echo "✅ Successfully captured OCSF output for $TARGET_ID"
-                else
-                  echo "⚠️  No valid OCSF file found for $TARGET_ID"
-                fi
-              else
-                echo "⚠️  No OCSF output files found for $TARGET_ID"
-              fi
-              
-          )
+      - name: Run Compliance Tests
+        id: compliance-tests
+        if: success() && steps.terraform-apply.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          echo "🧪 Running compliance tests for $TARGET_ID..."
+          cd "$GITHUB_WORKSPACE/testing"
+          
+          chmod +x run-compliance-tests.sh
+          ./run-compliance-tests.sh --provider "$TARGET_PROVIDER" --output "$OUTPUT_DIR"
+
+          echo "✅ Compliance tests completed for $TARGET_ID"
+
+      - name: Copy OCSF Results
+        if: always() && steps.terraform-apply.outcome == 'success'
+        run: |
+          # Create output directory
+          mkdir -p output
+          
+          # Copy Prowler OCSF results
+          cd "$GITHUB_WORKSPACE/prowler"
+          
+          if ls output/*.ocsf.json 1> /dev/null 2>&1; then
+            latest_file=$(ls -t output/*.ocsf.json | head -n 1)
+            if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
+              cp "$latest_file" "../output/${TARGET_ID}.ocsf.json"
+              echo "✅ Successfully captured Prowler OCSF output for $TARGET_ID"
+            else
+              echo "⚠️  No valid Prowler OCSF file found for $TARGET_ID"
+            fi
+          else
+            echo "⚠️  No Prowler OCSF output files found for $TARGET_ID"
+          fi
+          
+          # Copy combined OCSF results from compliance tests
+          cd "$GITHUB_WORKSPACE/testing"
+          if [ -f "testing/runner/output/combined.ocsf.json" ]; then
+            cp "testing/runner/output/combined.ocsf.json" "../output/${TARGET_ID}-combined.ocsf.json"
+            echo "✅ Successfully captured combined OCSF output for $TARGET_ID"
+          else
+            echo "⚠️  No combined OCSF file found for $TARGET_ID"
+          fi
+
+      - name: Terraform Destroy
+        if: always() && steps.terraform-apply.outcome == 'success'
+        run: |
+          echo "🧨 Running terraform destroy for $TARGET_ID..."
+          cd "$GITHUB_WORKSPACE/$TARGET_PATH"
+
+          if [ "$TARGET_PROVIDER" = "aws" ]; then
+            terraform destroy -auto-approve -input=false || true
+          elif [ "$TARGET_PROVIDER" = "azure" ]; then
+            terraform destroy -auto-approve -input=false || true
+          elif [ "$TARGET_PROVIDER" = "gcp" ]; then
+            terraform destroy -auto-approve -input=false || true
+          fi
+
+          echo "✅ Terraform destroy completed for $TARGET_ID"
 
       - name: Upload module results
         uses: actions/upload-artifact@v4
@@ -201,3 +413,4 @@ jobs:
           path: |
             ${{ env.OUTPUT_DIR }}
             config/${{ matrix.target.id }}.json
+
