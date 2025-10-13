@@ -98,6 +98,22 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Install Steampipe
+        run: |
+          echo "📦 Installing Steampipe..."
+          sudo /bin/sh -c "$(curl -fsSL https://steampipe.io/install/steampipe.sh)"
+          steampipe --version
+          
+          echo "📦 Installing Steampipe plugins..."
+          steampipe plugin install aws
+          steampipe plugin install azure
+          steampipe plugin install gcp
+          
+          echo "🚀 Starting Steampipe service..."
+          steampipe service start
+          
+          echo "✅ Steampipe installed and configured successfully"
+
       - name: Install aws-nuke
         if: matrix.target.provider == 'aws'
         run: |
