@@ -98,6 +98,11 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
       - name: Install Steampipe
         run: |
           echo "📦 Installing Steampipe..."
@@ -342,21 +347,46 @@ jobs:
 
           echo "✅ Prowler scan completed successfully for $TARGET_ID"
 
-      - name: Copy OCSF Results
-        if: always() && steps.prowler-scan.outcome != 'skipped'
+      - name: Run Compliance Tests
+        id: compliance-tests
+        if: success() && steps.terraform-apply.outcome == 'success'
+        continue-on-error: true
         run: |
+          set -euo pipefail
+
+          echo "🧪 Running compliance tests for $TARGET_ID..."
+          cd "$GITHUB_WORKSPACE/testing"
+          
+          chmod +x run-compliance-tests.sh
+          ./run-compliance-tests.sh --provider "$TARGET_PROVIDER" --output "$OUTPUT_DIR"
+
+          echo "✅ Compliance tests completed for $TARGET_ID"
+
+      - name: Copy OCSF Results
+        if: always() && steps.terraform-apply.outcome == 'success'
+        run: |
+          # Copy Prowler OCSF results
           cd "$GITHUB_WORKSPACE/prowler"
           
           if ls output/*.ocsf.json 1> /dev/null 2>&1; then
             latest_file=$(ls -t output/*.ocsf.json | head -n 1)
             if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
               cp "$latest_file" "../$OUTPUT_DIR/${TARGET_ID}.ocsf.json"
-              echo "✅ Successfully captured OCSF output for $TARGET_ID"
+              echo "✅ Successfully captured Prowler OCSF output for $TARGET_ID"
             else
-              echo "⚠️  No valid OCSF file found for $TARGET_ID"
+              echo "⚠️  No valid Prowler OCSF file found for $TARGET_ID"
             fi
           else
-            echo "⚠️  No OCSF output files found for $TARGET_ID"
+            echo "⚠️  No Prowler OCSF output files found for $TARGET_ID"
+          fi
+          
+          # Copy combined OCSF results from compliance tests
+          cd "$GITHUB_WORKSPACE/testing"
+          if [ -f "$OUTPUT_DIR/combined.ocsf.json" ]; then
+            cp "$OUTPUT_DIR/combined.ocsf.json" "../$OUTPUT_DIR/${TARGET_ID}-combined.ocsf.json"
+            echo "✅ Successfully captured combined OCSF output for $TARGET_ID"
+          else
+            echo "⚠️  No combined OCSF file found for $TARGET_ID"
           fi
 
       - name: Terraform Destroy
@@ -382,3 +412,4 @@ jobs:
           path: |
             ${{ env.OUTPUT_DIR }}
             config/${{ matrix.target.id }}.json
+
